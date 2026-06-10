@@ -1,0 +1,5 @@
+fastapi
+uvicorn[standard]
+yt-dlp[default]
+spotdl>=4.5
+setuptools<81

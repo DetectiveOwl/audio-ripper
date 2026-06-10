@@ -1,0 +1,17 @@
+# Secrets — never commit
+cookies.txt
+*.key
+*.pem
+
+# Runtime
+downloads/
+__pycache__/
+*.pyc
+
+# Environments
+venv/
+.venv/
+
+# OS noise
+.DS_Store
+Thumbs.db
