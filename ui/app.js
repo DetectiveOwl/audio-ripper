@@ -93,6 +93,18 @@
 
   urlEl.addEventListener('keydown', (e) => { if (e.key === 'Enter') go.click(); });
 
+  // Adatta il rack alla finestra: ingrandisce o rimpicciolisce tutto insieme.
+  // offsetWidth/offsetHeight non risentono del transform, quindi nessun loop.
+  function fit() {
+    const s = Math.max(0.5, Math.min(3,
+      (window.innerWidth - 32) / rack.offsetWidth,
+      (window.innerHeight - 32) / rack.offsetHeight));
+    rack.style.transform = 'scale(' + s + ')';
+  }
+  new ResizeObserver(fit).observe(rack);
+  window.addEventListener('resize', fit);
+  fit();
+
   listen('job-update', (e) => apply(e.payload));
   invoke('get_out_dir').then(showOutDir).catch(() => {});
   urlEl.focus();
