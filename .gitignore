@@ -1,16 +1,14 @@
-# Secrets — never commit
+# Secrets: never commit
 cookies.txt
 *.key
 *.pem
 
-# Runtime
-downloads/
-__pycache__/
-*.pyc
+# Rust
+/target/
 
-# Environments
-venv/
-.venv/
+# Binari esterni scaricati da scripts/fetch-binaries.ps1
+/src-tauri/binaries/
+/src-tauri/gen/
 
 # OS noise
 .DS_Store

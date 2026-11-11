@@ -1,99 +1,54 @@
-# audio-ripper
+# Audio Ripper
 
-A self-hosted, single-user web app that extracts audio from **YouTube**, **SoundCloud**
-and **Spotify links** as **MP3 320 kbps** or **WAV** — with an analog-studio-rack UI,
-live progress, and a one-script cloud deployment.
+App **Windows** per estrarre l'audio da **YouTube**, **SoundCloud** e link **Spotify** in
+**MP3 320 kbps** o **WAV**, con l'interfaccia a rack analogico di prima.
 
-> ⚠️ **Personal use only.** This tool is meant for downloading content you have the
-> right to save (your own uploads, freely licensed material, authorized content).
-> For Spotify links, **no audio is ever taken from Spotify**: spotDL reads track
-> metadata (title, artist, album, cover art) from the official API and fetches the
-> matching audio from YouTube. The DRM-protected Spotify stream is never touched.
+Scritta in **Rust** con **Tauri 2**. Non c'è nessun server: l'app apre una finestra
+(WebView2, già presente in Windows 11), lancia yt-dlp, spotDL e ffmpeg come processi
+figli e salva i file direttamente nella cartella che scegli. Quando chiudi la finestra
+non resta niente in esecuzione.
 
-![stack](https://img.shields.io/badge/FastAPI-async-009688) ![stack](https://img.shields.io/badge/yt--dlp%20%2B%20spotDL-extraction-ffb84d) ![stack](https://img.shields.io/badge/vanilla%20JS-no%20build%20step-f7df1e) ![stack](https://img.shields.io/badge/systemd%20%2B%20Tailscale-deploy-555)
+## Come funziona
 
-## Architecture
+La parte Rust sta in due crate. `crates/ripper-core` contiene la logica e non conosce la
+grafica: valida l'URL contro una lista di host ammessi, avvia yt-dlp (o spotDL per i link
+Spotify), legge l'output riga per riga per ricavare avanzamento e titolo, e supporta
+l'annullamento. `src-tauri` è il guscio dell'app: finestra, scelta cartella, comandi
+chiamati dall'interfaccia ed eventi di avanzamento verso di lei. L'interfaccia è in `ui/`
+(HTML, CSS e JS senza build).
 
-```
-Browser ──HTTPS──▶ Tailscale Funnel ──▶ 127.0.0.1:8000 (uvicorn, localhost-only)
-                                            │
-                              FastAPI async job manager (in-memory, no DB)
-                                            │
-                       ┌────────────────────┴────────────────────┐
-                YouTube / SoundCloud                       Spotify links
-                       │                                          │
-                yt-dlp subprocess                          spotDL subprocess
-              (stdout parsed line-by-line              (official API metadata →
-               for live progress %)                     audio fetched from YouTube)
-                       └────────────────────┬────────────────────┘
-                                         ffmpeg
-                                  MP3 320k / WAV output
-```
+Per la chiusura pulita l'app, all'avvio, si inserisce in un **Windows Job Object** con
+`KILL_ON_JOB_CLOSE`: se la finestra si chiude, anche nel mezzo di un download, Windows
+termina da solo tutti i processi figli (yt-dlp, ffmpeg, spotDL). Il pulsante **Annulla**
+ferma il download in corso e i suoi discendenti.
 
-Design choices worth noting:
+I file vanno nella cartella di destinazione (di default **Musica**, cambiabile dall'app e
+ricordata). Non ci sono più copie temporanee né pulizia a tempo.
 
-- **The backend binds to `127.0.0.1` only.** Exposure happens through a tunnel
-  (Tailscale Serve/Funnel) or a password-protected reverse proxy — the app itself
-  is never directly reachable, and the VM needs no open HTTP ports.
-- **Async job model without a database.** `POST /api/download` validates the URL's
-  host against an allowlist (everything else → HTTP 400), spawns an asyncio task
-  and returns a `job_id`. The frontend polls `GET /api/status/{id}` (~700 ms).
-  Jobs live in a dict; files and state are garbage-collected after 30 minutes.
-- **Real-time progress from a subprocess.** yt-dlp runs with `--newline` and its
-  stdout is read line-by-line, mapping `[download] 42.3%` and the audio-extraction
-  phase onto a 0–100 progress value and human-readable status messages.
-- **Single-file frontend, zero build step.** Hand-written HTML/CSS/JS styled as an
-  analog studio rack: machined corner screws, SVG fractal-noise grain, an animated
-  24-bar EQ display while a job runs, amber LEDs on the format toggle.
-- **Playlists degrade gracefully:** multiple resulting tracks are zipped server-side
-  and served as one download.
+## Scaricare l'app
 
-## API
+Su GitHub, scheda **Actions**, workflow **Build Windows**, **Run workflow**. A fine build
+trovi due artefatti: l'**installer** (`.exe`, installazione per utente senza permessi di
+amministratore) e la **versione portatile** (`.zip`, scompatti e avvii `audio-ripper.exe`).
+In entrambi yt-dlp, ffmpeg, spotDL e deno sono già inclusi.
 
-| Endpoint | Description |
-|---|---|
-| `POST /api/download` | `{url, fmt}` with `fmt ∈ {mp3, wav}` → `{job_id}`; 400 on non-allowlisted host |
-| `GET /api/status/{job_id}` | `{status, progress, message, title, filename}` |
-| `GET /api/file/{job_id}` | the resulting file (404 once expired) |
-| `GET /` | the single-page UI |
+## Compilare in locale (Windows)
 
-## Stack
+Servono Rust (`rustup`), Node.js e PowerShell.
 
-Python · FastAPI · Uvicorn · yt-dlp (+ Deno runtime for YouTube's JS challenges) ·
-spotDL · ffmpeg · vanilla HTML/CSS/JS · systemd · Tailscale — running on an
-always-free Oracle Cloud VM.
-
-## Deployment
-
-Designed for Ubuntu on Oracle Cloud Free Tier, but any Ubuntu box works:
-
-```bash
-scp -r audio-ripper ubuntu@<host>:~/
-ssh ubuntu@<host>
-cd ~/audio-ripper && bash setup.sh
+```powershell
+./scripts/fetch-binaries.ps1          # scarica yt-dlp, ffmpeg, spotDL, deno
+npx @tauri-apps/cli@2 dev             # finestra in modalità sviluppo
+npx @tauri-apps/cli@2 build           # installer in target/release/bundle/nsis
 ```
 
-`setup.sh` installs ffmpeg, Python, Deno and unzip, creates the venv, installs
-pinned dependencies, registers the `audio-ripper` systemd service (auto-restart,
-localhost-only) and installs Tailscale. Then either:
+I test della logica girano anche senza Windows: `cargo test -p ripper-core`.
 
-- **private access:** `sudo tailscale up && sudo tailscale serve --bg 8000`
-  → reachable only from your own devices, or
-- **public access:** front it with a reverse proxy (Caddy config with basic-auth
-  included in the repo history) and/or `tailscale funnel`.
+## Note operative
 
-### Operational notes
-
-- Some YouTube content requires a `cookies.txt` (Netscape format) in the project
-  root — both yt-dlp and spotDL pick it up automatically. Keep it `chmod 600`,
-  and never commit it (see `.gitignore`).
-- yt-dlp and spotDL chase moving targets; update them monthly:
-  `venv/bin/pip install -U yt-dlp spotdl && sudo systemctl restart audio-ripper`.
-- WAV output does not improve an already-compressed source — it is just a
-  lossless container from that point on. The UI says so, too.
-
-## License / intent
-
-Built as a personal tool and a portfolio piece. No accounts, no analytics, no
-tracking, in-memory state only, auto-deleting files. Use it only on content you
-are allowed to download, and respect the terms of the platforms involved.
+- Alcuni contenuti YouTube richiedono un `cookies.txt` in formato Netscape. Mettilo in
+  `%APPDATA%\dev.audioripper.app\cookies.txt` e verrà usato da yt-dlp e spotDL.
+- yt-dlp e spotDL seguono bersagli mobili: per aggiornarli basta rilanciare il build, che
+  scarica sempre le ultime versioni.
+- Il formato WAV non migliora una sorgente già compressa: è solo un contenitore senza
+  ulteriore perdita.
