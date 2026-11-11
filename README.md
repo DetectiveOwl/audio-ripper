@@ -32,6 +32,12 @@ trovi due artefatti: l'**installer** (`.exe`, installazione per utente senza per
 amministratore) e la **versione portatile** (`.zip`, scompatti e avvii `audio-ripper.exe`).
 In entrambi yt-dlp, ffmpeg, spotDL e deno sono già inclusi.
 
+**Avviso di Windows SmartScreen.** L'app non è firmata con un certificato a pagamento,
+quindi alla prima apertura Windows può mostrare "Windows ha protetto il PC". Premi
+**Maggiori informazioni** e poi **Esegui comunque**. Per la versione portatile puoi evitarlo
+facendo clic destro sullo zip, **Proprietà**, spunta **Annulla blocco**, e solo dopo
+scompattare.
+
 ## Compilare in locale (Windows)
 
 Servono Rust (`rustup`), Node.js e PowerShell.
