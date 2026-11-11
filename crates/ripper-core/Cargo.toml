@@ -1,0 +1,21 @@
+[package]
+name = "ripper-core"
+version = "0.1.0"
+edition = "2021"
+description = "Logica di Audio Ripper: validazione URL, parsing dell'output di yt-dlp/spotDL, esecuzione dei job."
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+tokio = { version = "1", features = ["process", "io-util", "sync", "macros", "rt", "time"] }
+url = "2"
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.59", features = [
+    "Win32_Foundation",
+    "Win32_Security",
+    "Win32_System_JobObjects",
+    "Win32_System_Threading",
+] }
+
+[dev-dependencies]
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "time"] }

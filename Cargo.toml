@@ -1,0 +1,11 @@
+[workspace]
+members = ["crates/ripper-core", "src-tauri"]
+resolver = "2"
+
+# Profilo pensato per un avvio istantaneo e un eseguibile piccolo.
+[profile.release]
+opt-level = "s"
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true

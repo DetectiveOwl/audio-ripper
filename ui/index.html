@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Audio Ripper</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main class="rack" id="rack">
+  <span class="screw tl"></span><span class="screw tr"></span>
+  <span class="screw bl"></span><span class="screw br"></span>
+
+  <header>
+    <h1>Audio<span class="amp">▸</span>Ripper</h1>
+    <span class="model">MOD. AR-320</span>
+  </header>
+
+  <div class="display">
+    <div class="eq" aria-hidden="true">
+      <span></span><span></span><span></span><span></span><span></span><span></span>
+      <span></span><span></span><span></span><span></span><span></span><span></span>
+      <span></span><span></span><span></span><span></span><span></span><span></span>
+      <span></span><span></span><span></span><span></span><span></span><span></span>
+    </div>
+    <div class="readout" id="readout">PRONTO. INSERIRE UN URL.</div>
+  </div>
+
+  <div class="row">
+    <label class="field">
+      <small>Sorgente: YouTube / SoundCloud / Spotify</small>
+      <input type="url" id="url" placeholder="https://…" autocomplete="off" spellcheck="false">
+    </label>
+  </div>
+
+  <div class="row">
+    <div class="field">
+      <small>Cartella di destinazione</small>
+      <div class="dest">
+        <span id="outdir" class="path" title="">…</span>
+        <button type="button" id="pick" class="ghost">Cambia</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="fmt" role="radiogroup" aria-label="Formato">
+      <button type="button" id="fmt-mp3" class="on" data-fmt="mp3"><span class="led"></span>MP3 320</button>
+      <button type="button" id="fmt-wav" data-fmt="wav"><span class="led"></span>WAV</button>
+    </div>
+    <button class="go" id="go">Estrai audio</button>
+  </div>
+
+  <div class="progress">
+    <div class="bar"><i id="fill"></i></div>
+    <div class="pct"><span id="msg">In attesa.</span><b id="pct">0%</b></div>
+  </div>
+
+  <button class="dl" id="dl" type="button">Mostra nella cartella</button>
+
+  <footer>
+    Il formato <b>WAV</b> non migliora una sorgente già compressa: è solo un
+    contenitore senza ulteriore perdita.
+  </footer>
+</main>
+<script src="app.js"></script>
+</body>
+</html>
