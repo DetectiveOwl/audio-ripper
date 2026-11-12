@@ -1,60 +1,62 @@
 # Audio Ripper
 
-App **Windows** per estrarre l'audio da **YouTube**, **SoundCloud** e link **Spotify** in
-**MP3 320 kbps** o **WAV**, con l'interfaccia a rack analogico di prima.
+A **Windows** app that extracts audio from **YouTube**, **SoundCloud** and **Spotify**
+links as **MP3 320 kbps** or **WAV**, with an analog studio-rack interface.
 
-Scritta in **Rust** con **Tauri 2**. Non c'è nessun server: l'app apre una finestra
-(WebView2, già presente in Windows 11), lancia yt-dlp, spotDL e ffmpeg come processi
-figli e salva i file direttamente nella cartella che scegli. Quando chiudi la finestra
-non resta niente in esecuzione.
+Written in **Rust** with **Tauri 2**. There is no server: the app opens a single
+fixed-size window (WebView2, already included in Windows 11), runs yt-dlp, spotDL and
+ffmpeg as child processes and saves files straight into the folder you choose. When you
+close the window, nothing is left running.
 
-## Come funziona
+## How it works
 
-La parte Rust sta in due crate. `crates/ripper-core` contiene la logica e non conosce la
-grafica: valida l'URL contro una lista di host ammessi, avvia yt-dlp (o spotDL per i link
-Spotify), legge l'output riga per riga per ricavare avanzamento e titolo, e supporta
-l'annullamento. `src-tauri` è il guscio dell'app: finestra, scelta cartella, comandi
-chiamati dall'interfaccia ed eventi di avanzamento verso di lei. L'interfaccia è in `ui/`
-(HTML, CSS e JS senza build).
+The Rust code is split into two crates. `crates/ripper-core` holds the logic and knows
+nothing about the UI: it validates the URL against an allowlist of hosts, starts yt-dlp
+(or spotDL for Spotify links), reads the output line by line to get progress and title,
+and supports cancellation. `src-tauri` is the application shell: window, folder picker,
+commands called by the interface and progress events sent back to it. The interface lives
+in `ui/` (plain HTML, CSS and JS, no build step).
 
-Per la chiusura pulita l'app, all'avvio, si inserisce in un **Windows Job Object** con
-`KILL_ON_JOB_CLOSE`: se la finestra si chiude, anche nel mezzo di un download, Windows
-termina da solo tutti i processi figli (yt-dlp, ffmpeg, spotDL). Il pulsante **Annulla**
-ferma il download in corso e i suoi discendenti.
+The window has a fixed size and no Windows title bar. The minimize and close buttons are
+part of the rack panel, and dragging the panel moves the window.
 
-I file vanno nella cartella di destinazione (di default **Musica**, cambiabile dall'app e
-ricordata). Non ci sono più copie temporanee né pulizia a tempo.
+For a clean exit, the app puts itself into a **Windows Job Object** with
+`KILL_ON_JOB_CLOSE` at startup: when the window is closed, even in the middle of a
+download, Windows terminates all child processes (yt-dlp, ffmpeg, spotDL) on its own. The
+**Cancel** button stops the running download and its descendants.
 
-## Scaricare l'app
+Files go to the destination folder (**Music** by default, changeable in the app and
+remembered). There are no temporary copies and no timed cleanup.
 
-Su GitHub, scheda **Actions**, workflow **Build Windows**, **Run workflow**. A fine build
-trovi due artefatti: l'**installer** (`.exe`, installazione per utente senza permessi di
-amministratore) e la **versione portatile** (`.zip`, scompatti e avvii `audio-ripper.exe`).
-In entrambi yt-dlp, ffmpeg, spotDL e deno sono già inclusi.
+## Getting the app
 
-**Avviso di Windows SmartScreen.** L'app non è firmata con un certificato a pagamento,
-quindi alla prima apertura Windows può mostrare "Windows ha protetto il PC". Premi
-**Maggiori informazioni** e poi **Esegui comunque**. Per la versione portatile puoi evitarlo
-facendo clic destro sullo zip, **Proprietà**, spunta **Annulla blocco**, e solo dopo
-scompattare.
+On GitHub, open the **Actions** tab, pick the **Build Windows** workflow and press
+**Run workflow**. When the build finishes you get two artifacts: the **installer**
+(`.exe`, per-user install without admin rights) and the **portable version** (`.zip`,
+unzip it and run `audio-ripper.exe`). Both already include yt-dlp, ffmpeg, spotDL and deno.
 
-## Compilare in locale (Windows)
+**Windows SmartScreen warning.** The app is not signed with a paid certificate, so on
+first launch Windows may show "Windows protected your PC". Click **More info** and then
+**Run anyway**. For the portable version you can avoid it by right-clicking the zip,
+choosing **Properties**, ticking **Unblock**, and only then extracting it.
 
-Servono Rust (`rustup`), Node.js e PowerShell.
+## Building locally (Windows)
+
+You need Rust (`rustup`), Node.js and PowerShell.
 
 ```powershell
-./scripts/fetch-binaries.ps1          # scarica yt-dlp, ffmpeg, spotDL, deno
-npx @tauri-apps/cli@2 dev             # finestra in modalità sviluppo
+./scripts/fetch-binaries.ps1          # downloads yt-dlp, ffmpeg, spotDL, deno
+npx @tauri-apps/cli@2 dev             # development window
 npx @tauri-apps/cli@2 build           # installer in target/release/bundle/nsis
 ```
 
-I test della logica girano anche senza Windows: `cargo test -p ripper-core`.
+The core logic tests also run without Windows: `cargo test -p ripper-core`.
 
-## Note operative
+## Notes
 
-- Alcuni contenuti YouTube richiedono un `cookies.txt` in formato Netscape. Mettilo in
-  `%APPDATA%\dev.audioripper.app\cookies.txt` e verrà usato da yt-dlp e spotDL.
-- yt-dlp e spotDL seguono bersagli mobili: per aggiornarli basta rilanciare il build, che
-  scarica sempre le ultime versioni.
-- Il formato WAV non migliora una sorgente già compressa: è solo un contenitore senza
-  ulteriore perdita.
+- Some YouTube content needs a `cookies.txt` in Netscape format. Put it in
+  `%APPDATA%\dev.audioripper.app\cookies.txt` and it will be used by yt-dlp and spotDL.
+- yt-dlp and spotDL chase moving targets: to update them, just run the build again, which
+  always downloads the latest versions.
+- WAV output does not improve an already compressed source: it is only a lossless
+  container from that point on.

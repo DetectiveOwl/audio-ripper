@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="it">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -16,10 +16,10 @@
     <div class="head-right">
       <span class="model">MOD. AR-320</span>
       <div class="winctl">
-        <button type="button" id="win-min" title="Riduci a icona" aria-label="Riduci a icona">
+        <button type="button" id="win-min" title="Minimize" aria-label="Minimize">
           <svg viewBox="0 0 12 12"><path d="M2 9h8"/></svg>
         </button>
-        <button type="button" id="win-close" class="close" title="Chiudi" aria-label="Chiudi">
+        <button type="button" id="win-close" class="close" title="Close" aria-label="Close">
           <svg viewBox="0 0 12 12"><path d="M2.5 2.5l7 7M9.5 2.5l-7 7"/></svg>
         </button>
       </div>
@@ -33,44 +33,44 @@
       <span></span><span></span><span></span><span></span><span></span><span></span>
       <span></span><span></span><span></span><span></span><span></span><span></span>
     </div>
-    <div class="readout" id="readout">PRONTO. INSERIRE UN URL.</div>
+    <div class="readout" id="readout">READY. ENTER A URL.</div>
   </div>
 
   <div class="row">
     <label class="field">
-      <small>Sorgente: YouTube / SoundCloud / Spotify</small>
+      <small>Source: YouTube / SoundCloud / Spotify</small>
       <input type="url" id="url" placeholder="https://…" autocomplete="off" spellcheck="false">
     </label>
   </div>
 
   <div class="row">
     <div class="field">
-      <small>Cartella di destinazione</small>
+      <small>Destination folder</small>
       <div class="dest">
         <span id="outdir" class="path" title="">…</span>
-        <button type="button" id="pick" class="ghost">Cambia</button>
+        <button type="button" id="pick" class="ghost">Change</button>
       </div>
     </div>
   </div>
 
   <div class="row">
-    <div class="fmt" role="radiogroup" aria-label="Formato">
+    <div class="fmt" role="radiogroup" aria-label="Format">
       <button type="button" id="fmt-mp3" class="on" data-fmt="mp3"><span class="led"></span>MP3 320</button>
       <button type="button" id="fmt-wav" data-fmt="wav"><span class="led"></span>WAV</button>
     </div>
-    <button class="go" id="go">Estrai audio</button>
+    <button class="go" id="go">Extract audio</button>
   </div>
 
   <div class="progress">
     <div class="bar"><i id="fill"></i></div>
-    <div class="pct"><span id="msg">In attesa.</span><b id="pct">0%</b></div>
+    <div class="pct"><span id="msg">Waiting.</span><b id="pct">0%</b></div>
   </div>
 
-  <button class="dl" id="dl" type="button">Mostra nella cartella</button>
+  <button class="dl" id="dl" type="button">Show in folder</button>
 
   <footer>
-    Il formato <b>WAV</b> non migliora una sorgente già compressa: è solo un
-    contenitore senza ulteriore perdita.
+    <b>WAV</b> does not improve an already compressed source: it is only a
+    lossless container.
   </footer>
 </main>
 <script src="app.js"></script>

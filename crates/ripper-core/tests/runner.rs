@@ -1,4 +1,4 @@
-//! Test di integrazione con finti yt-dlp/spotDL (script shell): solo Unix.
+//! Integration tests with fake yt-dlp/spotDL (shell scripts): Unix only.
 #![cfg(unix)]
 
 use std::fs;
@@ -43,11 +43,11 @@ async fn ytdlp_success_reports_progress_and_file() {
     let out = d.join("out");
     fs::create_dir_all(&out).unwrap();
     let body = format!(
-        r#"echo "[download] Destination: {o}/Brano.webm"
+        r#"echo "[download] Destination: {o}/Track.webm"
 echo "[download]  50.0% of 1MiB"
 echo "[download] 100% of 1MiB"
-echo "[ExtractAudio] Destination: {o}/Brano.mp3"
-touch "{o}/Brano.mp3""#,
+echo "[ExtractAudio] Destination: {o}/Track.mp3"
+touch "{o}/Track.mp3""#,
         o = out.display()
     );
     let y = write_script(&d, "yt-dlp", &body);
@@ -59,8 +59,8 @@ touch "{o}/Brano.mp3""#,
     let last = ups.last().unwrap();
     assert_eq!(last.status, Status::Done);
     assert_eq!(last.progress, 100);
-    assert_eq!(last.title.as_deref(), Some("Brano"));
-    assert!(last.file.as_deref().unwrap().ends_with("Brano.mp3"));
+    assert_eq!(last.title.as_deref(), Some("Track"));
+    assert!(last.file.as_deref().unwrap().ends_with("Track.mp3"));
 }
 
 #[tokio::test]
@@ -83,7 +83,7 @@ async fn missing_tool_is_reported() {
     let ups = collect(spec, &t, Arc::new(Notify::new())).await;
     let last = ups.last().unwrap();
     assert_eq!(last.status, Status::Error);
-    assert!(last.message.contains("mancante"));
+    assert!(last.message.contains("Missing"));
 }
 
 #[tokio::test]
@@ -93,10 +93,10 @@ async fn spotdl_playlist_counts_tracks() {
     fs::create_dir_all(&out).unwrap();
     let body = format!(
         r#"echo "Found 2 songs in Mix (Playlist)"
-touch "{o}/A - Uno.mp3"
-echo 'Downloaded "A - Uno": https://youtu.be/1'
-touch "{o}/B - Due.mp3"
-echo 'Downloaded "B - Due": https://youtu.be/2'"#,
+touch "{o}/A - One.mp3"
+echo 'Downloaded "A - One": https://youtu.be/1'
+touch "{o}/B - Two.mp3"
+echo 'Downloaded "B - Two": https://youtu.be/2'"#,
         o = out.display()
     );
     let s = write_script(&d, "spotdl", &body);
@@ -124,6 +124,6 @@ async fn cancel_kills_the_process() {
     });
     let started = std::time::Instant::now();
     let ups = collect(spec, &t, cancel).await;
-    assert!(started.elapsed() < Duration::from_secs(10), "il processo non è stato terminato");
+    assert!(started.elapsed() < Duration::from_secs(10), "the process was not terminated");
     assert_eq!(ups.last().unwrap().status, Status::Cancelled);
 }

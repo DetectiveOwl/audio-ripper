@@ -7,7 +7,7 @@ on:
 
 jobs:
   core:
-    name: Test del core e check per Windows
+    name: Core tests and Windows check
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -16,5 +16,5 @@ jobs:
           targets: x86_64-pc-windows-msvc
       - uses: Swatinem/rust-cache@v2
       - run: cargo test -p ripper-core
-      - name: Il codice Windows del core compila
+      - name: The core's Windows code compiles
         run: cargo check -p ripper-core --target x86_64-pc-windows-msvc
