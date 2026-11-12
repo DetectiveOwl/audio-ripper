@@ -1,11 +1,10 @@
 name: Build Windows
 
 # Builds the installer and the portable version. Run it by hand (Actions ->
-# Build Windows -> Run workflow) or by pushing a "v*" tag.
+# Build Windows -> Run workflow); the Release workflow also calls it.
 on:
   workflow_dispatch:
-  push:
-    tags: ["v*"]
+  workflow_call:
 
 jobs:
   windows:
@@ -25,6 +24,12 @@ jobs:
       - name: Build (NSIS installer)
         run: npx --yes @tauri-apps/cli@2 build
 
+      - name: Name the installer
+        shell: pwsh
+        run: |
+          Get-ChildItem target/release/bundle/nsis/*-setup.exe | Select-Object -First 1 |
+            Copy-Item -Destination AudioRipper-Windows-setup.exe
+
       - name: Portable version (zip)
         shell: pwsh
         run: |
@@ -32,13 +37,13 @@ jobs:
           foreach ($f in 'audio-ripper','yt-dlp','ffmpeg','spotdl','deno') {
             Copy-Item "target/release/$f.exe" portable/AudioRipper/
           }
-          Compress-Archive -Path portable/AudioRipper -DestinationPath AudioRipper-portable.zip
+          Compress-Archive -Path portable/AudioRipper -DestinationPath AudioRipper-Windows-portable.zip
 
       - uses: actions/upload-artifact@v4
         with:
           name: AudioRipper-installer
-          path: target/release/bundle/nsis/*.exe
+          path: AudioRipper-Windows-setup.exe
       - uses: actions/upload-artifact@v4
         with:
           name: AudioRipper-portable
-          path: AudioRipper-portable.zip
+          path: AudioRipper-Windows-portable.zip

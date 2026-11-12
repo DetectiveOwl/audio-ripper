@@ -127,3 +127,41 @@ async fn cancel_kills_the_process() {
     assert!(started.elapsed() < Duration::from_secs(10), "the process was not terminated");
     assert_eq!(ups.last().unwrap().status, Status::Cancelled);
 }
+
+fn process_alive(pid: i32) -> bool {
+    // SAFETY: signal 0 only checks that the process exists.
+    unsafe { libc::kill(pid, 0) == 0 }
+}
+
+#[tokio::test]
+async fn cancel_also_kills_grandchildren() {
+    let d = tmp("grandchild");
+    let pidfile = d.join("pid");
+    let body = format!(
+        r#"sleep 30 &
+echo $! > "{p}"
+echo "[download]  10.0% of 1MiB"
+wait"#,
+        p = pidfile.display()
+    );
+    let y = write_script(&d, "yt-dlp", &body);
+    let t = tools(&d, y, d.join("none"));
+    let spec = JobSpec { url: "https://youtu.be/x".into(), source: Source::Direct, format: Format::Mp3, out_dir: d.clone() };
+    let cancel = Arc::new(Notify::new());
+    let c2 = cancel.clone();
+    tokio::spawn(async move {
+        tokio::time::sleep(Duration::from_millis(500)).await;
+        c2.notify_one();
+    });
+    let ups = collect(spec, &t, cancel).await;
+    assert_eq!(ups.last().unwrap().status, Status::Cancelled);
+
+    let pid: i32 = fs::read_to_string(&pidfile).unwrap().trim().parse().unwrap();
+    for _ in 0..40 {
+        if !process_alive(pid) {
+            return;
+        }
+        tokio::time::sleep(Duration::from_millis(50)).await;
+    }
+    panic!("the grandchild process {pid} is still running");
+}
