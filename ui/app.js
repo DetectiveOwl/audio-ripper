@@ -93,17 +93,14 @@
 
   urlEl.addEventListener('keydown', (e) => { if (e.key === 'Enter') go.click(); });
 
-  // Adatta il rack alla finestra: ingrandisce o rimpicciolisce tutto insieme.
-  // offsetWidth/offsetHeight non risentono del transform, quindi nessun loop.
-  function fit() {
-    const s = Math.max(0.5, Math.min(3,
-      (window.innerWidth - 32) / rack.offsetWidth,
-      (window.innerHeight - 32) / rack.offsetHeight));
-    rack.style.transform = 'scale(' + s + ')';
-  }
-  new ResizeObserver(fit).observe(rack);
-  window.addEventListener('resize', fit);
-  fit();
+  // Finestra senza barra del titolo: tasti propri e trascinamento dal pannello.
+  $('win-min').addEventListener('click', () => invoke('minimize'));
+  $('win-close').addEventListener('click', () => invoke('quit'));
+  const appWindow = window.__TAURI__.window.getCurrentWindow();
+  rack.addEventListener('mousedown', (e) => {
+    if (e.button !== 0 || e.target.closest('button, input, a')) return;
+    appWindow.startDragging();
+  });
 
   listen('job-update', (e) => apply(e.payload));
   invoke('get_out_dir').then(showOutDir).catch(() => {});
