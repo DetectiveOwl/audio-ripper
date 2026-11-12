@@ -331,6 +331,10 @@ fn base_command(program: &Path) -> Command {
         // yt-dlp and spotDL are Python programs: force UTF-8 on the pipes
         .env("PYTHONUTF8", "1")
         .env("PYTHONIOENCODING", "utf-8");
+    // macOS and Linux: the child leads its own process group, so the whole tree
+    // (yt-dlp -> ffmpeg) can be killed at once
+    #[cfg(unix)]
+    cmd.process_group(0);
     #[cfg(windows)]
     {
         // no black console window for each child process
@@ -347,6 +351,7 @@ async fn run_process(
     mut on_line: impl FnMut(&str),
 ) -> io::Result<Outcome> {
     let mut child = cmd.spawn()?;
+    let _registered = child.id().map(crate::children::Registered::new);
     let (tx, mut rx) = mpsc::unbounded_channel::<String>();
     if let Some(out) = child.stdout.take() {
         tokio::spawn(pump(out, tx.clone()));
@@ -402,6 +407,10 @@ async fn kill_tree(child: &mut Child) {
             .stderr(Stdio::null())
             .creation_flags(CREATE_NO_WINDOW);
         let _ = tk.status().await;
+    }
+    #[cfg(unix)]
+    if let Some(pid) = child.id() {
+        crate::children::kill_group(pid);
     }
     let _ = child.kill().await;
     let _ = child.wait().await;

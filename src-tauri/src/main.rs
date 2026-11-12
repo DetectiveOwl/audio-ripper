@@ -130,7 +130,7 @@ fn cancel_download(state: State<'_, AppState>) {
     }
 }
 
-/// Shows the file in File Explorer (or opens the folder if the path is a folder).
+/// Shows the file in File Explorer or Finder (or opens the folder if the path is a folder).
 #[tauri::command]
 fn reveal(path: String) -> Result<(), String> {
     let p = Path::new(&path);
@@ -146,27 +146,38 @@ fn reveal(path: String) -> Result<(), String> {
         }
         cmd.spawn().map(|_| ()).map_err(|e| e.to_string())
     }
-    #[cfg(not(windows))]
+    #[cfg(target_os = "macos")]
+    {
+        // `open -R` reveals the file in Finder; for a folder, just open it
+        let mut cmd = std::process::Command::new("open");
+        if !p.is_dir() {
+            cmd.arg("-R");
+        }
+        cmd.arg(&path).spawn().map(|_| ()).map_err(|e| e.to_string())
+    }
+    #[cfg(not(any(windows, target_os = "macos")))]
     {
         let dir = if p.is_dir() { p } else { p.parent().unwrap_or(p) };
         std::process::Command::new("xdg-open").arg(dir).spawn().map(|_| ()).map_err(|e| e.to_string())
     }
 }
 
-/// Minimize (the window has no Windows title bar).
+/// Minimize (the window has no system title bar).
 #[tauri::command]
 fn minimize(window: tauri::WebviewWindow) {
     let _ = window.minimize();
 }
 
-/// Closes the app. On exit the Job Object also terminates all child processes.
+/// Closes the app. On exit all child processes are terminated (Job Object on
+/// Windows, process groups on macOS and Linux).
 #[tauri::command]
 fn quit(app: AppHandle) {
     app.exit(0);
 }
 
 fn main() {
-    // When the app exits, Windows terminates all child processes.
+    // Windows: when the app exits, the OS terminates all child processes.
+    // (macOS and Linux: see the Exit handler below.)
     if let Err(e) = ripper_core::jobobject::kill_children_on_exit() {
         eprintln!("Job Object not active: {e}");
     }
@@ -183,6 +194,12 @@ fn main() {
             minimize,
             quit
         ])
-        .run(tauri::generate_context!())
-        .expect("error while starting Audio Ripper");
+        .build(tauri::generate_context!())
+        .expect("error while starting Audio Ripper")
+        .run(|_app, event| {
+            // macOS and Linux: kill the process groups of any running job
+            if let tauri::RunEvent::Exit = event {
+                ripper_core::children::kill_all();
+            }
+        });
 }

@@ -1,0 +1,51 @@
+name: Build macOS
+
+# Builds the macOS app for Apple Silicon and Intel. Run it by hand (Actions ->
+# Build macOS -> Run workflow) or by pushing a "v*" tag.
+on:
+  workflow_dispatch:
+  push:
+    tags: ["v*"]
+
+jobs:
+  macos:
+    name: macOS (${{ matrix.label }})
+    runs-on: macos-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: aarch64-apple-darwin
+            label: apple-silicon
+          - target: x86_64-apple-darwin
+            label: intel
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.target }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Download yt-dlp, ffmpeg, spotDL and deno
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: ./scripts/fetch-binaries.sh ${{ matrix.target }}
+
+      - name: Build (.app)
+        run: npx --yes @tauri-apps/cli@2 build --target ${{ matrix.target }} --bundles app
+
+      - name: Zip the app
+        run: |
+          ditto -c -k --sequesterRsrc --keepParent \
+            "target/${{ matrix.target }}/release/bundle/macos/Audio Ripper.app" \
+            "AudioRipper-macOS-${{ matrix.label }}.zip"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: AudioRipper-macOS-${{ matrix.label }}
+          path: AudioRipper-macOS-${{ matrix.label }}.zip

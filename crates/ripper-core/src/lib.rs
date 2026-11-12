@@ -4,6 +4,7 @@
 //! destination folder, runs yt-dlp or spotDL as child processes and reports
 //! progress through a callback. This makes it testable without a window.
 
+pub mod children;
 pub mod jobobject;
 pub mod parse;
 pub mod runner;
