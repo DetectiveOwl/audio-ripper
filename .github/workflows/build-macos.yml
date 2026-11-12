@@ -1,9 +1,17 @@
 name: Build macOS
 
 # Builds the macOS app for Apple Silicon and Intel. Run it by hand (Actions ->
-# Build macOS -> Run workflow) or by pushing a "v*" tag.
+# Build macOS -> Run workflow), by pushing a "v*" tag, or automatically on pull
+# requests that touch the app or the build (to catch macOS build breakages).
 on:
   workflow_dispatch:
+  pull_request:
+    paths:
+      - "src-tauri/**"
+      - "crates/**"
+      - "ui/**"
+      - "scripts/fetch-binaries.sh"
+      - ".github/workflows/build-macos.yml"
   push:
     tags: ["v*"]
 
