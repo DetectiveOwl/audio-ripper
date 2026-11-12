@@ -1,11 +1,17 @@
 name: Release
 
 # Builds Windows and macOS and publishes them as a GitHub Release with
-# clearly named files. Run it by pushing a tag such as "v0.1.0":
-#   git tag v0.1.0 && git push origin v0.1.0
+# clearly named files. Run it by pushing a tag such as "v0.1.0"
+# (git tag v0.1.0 && git push origin v0.1.0), or from the Actions tab
+# (Release -> Run workflow) by typing the version, which creates the tag.
 on:
   push:
     tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Version tag to create, for example v0.1.0"
+        required: true
 
 jobs:
   windows:
@@ -28,7 +34,8 @@ jobs:
       - name: Create the release
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG: ${{ github.ref_name }}
+          TAG: ${{ inputs.tag || github.ref_name }}
+          SHA: ${{ github.sha }}
           REPO: ${{ github.repository }}
         run: |
           ls -la dist
@@ -52,6 +59,7 @@ jobs:
           sed -i "s#@REPO@#$REPO#" notes.md
           gh release create "$TAG" dist/* \
             --repo "$REPO" \
+            --target "$SHA" \
             --title "Audio Ripper $TAG" \
             --notes-file notes.md \
             --generate-notes
