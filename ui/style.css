@@ -10,7 +10,7 @@
   --muted:#9a9080;
   --red:#ff5c47;
   --green:#9be15d;
-  /* font di sistema: niente download, avvio immediato anche offline */
+  /* system fonts: nothing to download, instant start even offline */
   --mono:"Cascadia Mono",Consolas,"Courier New",monospace;
   --disp:Bahnschrift,"Segoe UI",sans-serif;
 }
@@ -23,16 +23,16 @@ body{
   position:relative;
   user-select:none;
   overflow:hidden;
-  /* altezza riga esplicita: il layout non dipende dal font installato */
+  /* explicit line height: the layout does not depend on the installed font */
   line-height:1.3;
 }
 input,button{line-height:1.3}
-/* grana analogica */
+/* analog grain */
 body::after{
   content:"";position:fixed;inset:0;pointer-events:none;opacity:.5;
   background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3CfeColorMatrix type='matrix' values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.05 0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
 }
-/* Il pannello riempie tutta la finestra (che è a dimensione fissa e senza barra del titolo) */
+/* The panel fills the whole window (fixed size, no title bar) */
 .rack{
   width:100%;height:100%;
   display:flex;flex-direction:column;

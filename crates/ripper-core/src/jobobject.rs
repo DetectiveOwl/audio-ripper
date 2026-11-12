@@ -1,10 +1,10 @@
 //! Windows Job Object con `KILL_ON_JOB_CLOSE`.
 //!
-//! L'app inserisce se stessa in un job: tutti i processi che avvierà da quel
-//! momento (yt-dlp, ffmpeg, spotDL, il WebView2 stesso) ne fanno parte. Quando
-//! l'app termina, in qualunque modo (chiusura finestra, crash, kill dal task
-//! manager), Windows chiude l'ultimo handle del job e termina in blocco tutti
-//! i processi rimasti. Niente processi orfani in background.
+//! The app puts itself into a job: every process it starts from then on
+//! (yt-dlp, ffmpeg, spotDL, WebView2 itself) becomes part of it. When the app
+//! ends, however that happens (window closed, crash, killed from Task
+//! Manager), Windows closes the last handle of the job and terminates all the
+//! remaining processes at once. No orphan processes are left in the background.
 
 #[cfg(windows)]
 pub fn kill_children_on_exit() -> Result<(), String> {
@@ -17,13 +17,13 @@ pub fn kill_children_on_exit() -> Result<(), String> {
     };
     use windows_sys::Win32::System::Threading::GetCurrentProcess;
 
-    // SAFETY: chiamate Win32 con puntatori validi per la durata della chiamata.
-    // L'handle del job viene volutamente lasciato aperto: deve restare vivo
-    // fino alla morte del processo, che è il momento in cui scatta il kill.
+    // SAFETY: Win32 calls with pointers that are valid for the duration of the call.
+    // The job handle is deliberately left open: it must stay alive until the
+    // process dies, which is the moment the kill is triggered.
     unsafe {
         let job = CreateJobObjectW(std::ptr::null(), std::ptr::null());
         if job.is_null() {
-            return Err("CreateJobObjectW fallita".into());
+            return Err("CreateJobObjectW failed".into());
         }
         let mut info: JOBOBJECT_EXTENDED_LIMIT_INFORMATION = zeroed();
         info.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
@@ -34,16 +34,16 @@ pub fn kill_children_on_exit() -> Result<(), String> {
             size_of::<JOBOBJECT_EXTENDED_LIMIT_INFORMATION>() as u32,
         );
         if ok == 0 {
-            return Err("SetInformationJobObject fallita".into());
+            return Err("SetInformationJobObject failed".into());
         }
         if AssignProcessToJobObject(job, GetCurrentProcess()) == 0 {
-            return Err("AssignProcessToJobObject fallita".into());
+            return Err("AssignProcessToJobObject failed".into());
         }
     }
     Ok(())
 }
 
-/// Su sistemi non Windows (sviluppo e test) non fa nulla.
+/// On non-Windows systems (development and tests) this does nothing.
 #[cfg(not(windows))]
 pub fn kill_children_on_exit() -> Result<(), String> {
     Ok(())

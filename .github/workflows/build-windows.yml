@@ -1,7 +1,7 @@
 name: Build Windows
 
-# Compila l'installer e la versione portatile. Si lancia a mano (Actions ->
-# Build Windows -> Run workflow) oppure pubblicando un tag "v*".
+# Builds the installer and the portable version. Run it by hand (Actions ->
+# Build Windows -> Run workflow) or by pushing a "v*" tag.
 on:
   workflow_dispatch:
   push:
@@ -18,14 +18,14 @@ jobs:
         with:
           node-version: 22
 
-      - name: Scarica yt-dlp, ffmpeg, spotDL e deno
+      - name: Download yt-dlp, ffmpeg, spotDL and deno
         shell: pwsh
         run: ./scripts/fetch-binaries.ps1
 
-      - name: Build (installer NSIS)
+      - name: Build (NSIS installer)
         run: npx --yes @tauri-apps/cli@2 build
 
-      - name: Versione portatile (zip)
+      - name: Portable version (zip)
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path portable/AudioRipper | Out-Null

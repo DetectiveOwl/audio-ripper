@@ -29,15 +29,15 @@
   function setRunning(on) {
     running = on;
     rack.classList.toggle('busy', on);
-    go.textContent = on ? 'Annulla' : 'Estrai audio';
+    go.textContent = on ? 'Cancel' : 'Extract audio';
     go.classList.toggle('stop', on);
     pick.disabled = on;
     fmtWrap.classList.toggle('locked', on);
   }
   function fail(text) {
     setRunning(false);
-    setReadout('ERRORE: ' + text, 'err');
-    msg.textContent = 'Errore.';
+    setReadout('ERROR: ' + text, 'err');
+    msg.textContent = 'Error.';
   }
   function showOutDir(dir) {
     outdirEl.textContent = dir;
@@ -50,27 +50,27 @@
       if (s.title) setReadout('▸ ' + s.title.toUpperCase());
     } else if (s.status === 'done') {
       setRunning(false);
-      setProgress(100, s.files > 1 ? 'Completato: ' + s.files + ' brani.' : 'Completato.');
-      setReadout(s.title ? '✓ ' + s.title.toUpperCase() : '✓ COMPLETATO', 'ok');
+      setProgress(100, s.files > 1 ? 'Done: ' + s.files + ' tracks.' : 'Done.');
+      setReadout(s.title ? '✓ ' + s.title.toUpperCase() : '✓ DONE', 'ok');
       revealPath = s.file || outdirEl.title;
       dl.classList.add('show');
     } else if (s.status === 'error') {
-      fail(s.message || 'errore sconosciuto.');
+      fail(s.message || 'unknown error.');
     } else if (s.status === 'cancelled') {
       setRunning(false);
-      setProgress(0, 'Annullato.');
-      setReadout('ANNULLATO.');
+      setProgress(0, 'Cancelled.');
+      setReadout('CANCELLED.');
     }
   }
 
   go.addEventListener('click', async () => {
     if (running) { invoke('cancel_download'); return; }
     const url = urlEl.value.trim();
-    if (!url) { setReadout('ERRORE: INSERIRE UN URL.', 'err'); return; }
+    if (!url) { setReadout('ERROR: ENTER A URL.', 'err'); return; }
     dl.classList.remove('show');
     setRunning(true);
-    setProgress(0, 'Avvio…');
-    setReadout('CONNESSIONE…');
+    setProgress(0, 'Starting…');
+    setReadout('CONNECTING…');
     try {
       await invoke('start_download', { url, fmt });
     } catch (e) {
@@ -83,7 +83,7 @@
       const dir = await invoke('pick_out_dir');
       if (dir) showOutDir(dir);
     } catch (e) {
-      setReadout('ERRORE: ' + e, 'err');
+      setReadout('ERROR: ' + e, 'err');
     }
   });
 
@@ -93,7 +93,7 @@
 
   urlEl.addEventListener('keydown', (e) => { if (e.key === 'Enter') go.click(); });
 
-  // Finestra senza barra del titolo: tasti propri e trascinamento dal pannello.
+  // Frameless window: own buttons, and the panel can be dragged to move it.
   $('win-min').addEventListener('click', () => invoke('minimize'));
   $('win-close').addEventListener('click', () => invoke('quit'));
   const appWindow = window.__TAURI__.window.getCurrentWindow();

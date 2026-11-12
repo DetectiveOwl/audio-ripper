@@ -1,6 +1,6 @@
-//! Esecuzione di un job: avvia yt-dlp o spotDL, legge l'output e comunica
-//! lo stato. Un job alla volta, nessuno stato globale, nessuna pulizia
-//! differita: i file vanno direttamente nella cartella scelta dall'utente.
+//! Running a job: starts yt-dlp or spotDL, reads their output and reports
+//! progress. One job at a time, no global state, no delayed cleanup: files go
+//! straight into the folder chosen by the user.
 
 use std::io;
 use std::path::{Path, PathBuf};
@@ -25,16 +25,16 @@ pub enum Status {
     Cancelled,
 }
 
-/// Aggiornamento inviato alla UI.
+/// Update sent to the UI.
 #[derive(Debug, Clone, Serialize)]
 pub struct JobUpdate {
     pub status: Status,
     pub progress: u8,
     pub message: String,
     pub title: Option<String>,
-    /// Percorso dell'ultimo file prodotto, se noto.
+    /// Path of the last file produced, if known.
     pub file: Option<String>,
-    /// Quanti brani sono stati scritti (più di uno per le playlist Spotify).
+    /// How many tracks were written (more than one for Spotify playlists).
     pub files: u32,
 }
 
@@ -47,15 +47,15 @@ impl JobUpdate {
     }
 }
 
-/// Percorsi dei programmi esterni.
+/// Paths of the external programs.
 #[derive(Debug, Clone)]
 pub struct Tools {
     pub ytdlp: PathBuf,
     pub spotdl: PathBuf,
     pub ffmpeg: PathBuf,
-    /// Runtime JavaScript per le sfide di YouTube (facoltativo).
+    /// JavaScript runtime for YouTube challenges (optional).
     pub deno: Option<PathBuf>,
-    /// cookies.txt in formato Netscape (facoltativo).
+    /// cookies.txt in Netscape format (optional).
     pub cookies: Option<PathBuf>,
 }
 
@@ -67,8 +67,8 @@ pub struct JobSpec {
     pub out_dir: PathBuf,
 }
 
-/// Esegue il job fino alla fine, emettendo aggiornamenti.
-/// `cancel.notify_one()` interrompe il processo (e i suoi figli).
+/// Runs the job to completion, emitting updates.
+/// `cancel.notify_one()` stops the process (and its children).
 pub async fn run_job(
     spec: JobSpec,
     tools: &Tools,
@@ -76,16 +76,16 @@ pub async fn run_job(
     mut emit: impl FnMut(JobUpdate),
 ) {
     let started = SystemTime::now();
-    emit(JobUpdate::running(0, "Avvio…", None));
+    emit(JobUpdate::running(0, "Starting…", None));
     let result = match spec.source {
         Source::Direct => run_ytdlp(&spec, tools, &cancel, &mut emit, started).await,
         Source::Spotify => run_spotdl(&spec, tools, &cancel, &mut emit, started).await,
     };
     if let Err(e) = result {
         let msg = if e.kind() == io::ErrorKind::NotFound {
-            "Componente mancante (yt-dlp, ffmpeg o spotDL). Reinstalla l'app.".to_string()
+            "Missing component (yt-dlp, ffmpeg or spotDL). Please reinstall the app.".to_string()
         } else {
-            format!("Impossibile avviare il processo: {e}")
+            format!("Could not start the process: {e}")
         };
         emit(JobUpdate::failed(msg));
     }
@@ -161,14 +161,14 @@ async fn run_ytdlp(
         }
         match parse_ytdlp_line(line) {
             YtLine::Progress(p) => {
-                emit(JobUpdate::running(p.min(99), "Download in corso…", title.clone()));
+                emit(JobUpdate::running(p.min(99), "Downloading…", title.clone()));
             }
             YtLine::Destination(d) => {
                 if file.is_none() {
                     title = Some(title_from_path(&d));
                 }
             }
-            YtLine::Converting => emit(JobUpdate::running(99, "Conversione…", title.clone())),
+            YtLine::Converting => emit(JobUpdate::running(99, "Converting…", title.clone())),
             YtLine::Finished(f) => {
                 title = Some(title_from_path(&f));
                 file = Some(f);
@@ -190,19 +190,19 @@ async fn run_ytdlp(
                 Some(f) => emit(JobUpdate {
                     status: Status::Done,
                     progress: 100,
-                    message: "Completato.".into(),
+                    message: "Done.".into(),
                     title: title.or_else(|| Some(title_from_path(&f))),
                     file: Some(f),
                     files: 1,
                 }),
-                None => emit(JobUpdate::failed("Nessun file audio prodotto.")),
+                None => emit(JobUpdate::failed("No audio file was produced.")),
             }
         }
         Outcome::Exit(code) => {
             let detail = if last_error.is_empty() { last_line } else { last_error };
             emit(JobUpdate::failed(format!(
-                "yt-dlp è uscito con codice {}: {}",
-                code.map_or("sconosciuto".to_string(), |c| c.to_string()),
+                "yt-dlp exited with code {}: {}",
+                code.map_or("unknown".to_string(), |c| c.to_string()),
                 truncate(&detail, 200)
             )));
         }
@@ -210,8 +210,8 @@ async fn run_ytdlp(
     Ok(())
 }
 
-/// Link Spotify: spotDL legge solo i metadati dall'API ufficiale e scarica
-/// l'audio equivalente da YouTube.
+/// Spotify links: spotDL reads only the metadata from the official API and
+/// downloads the equivalent audio from YouTube.
 async fn run_spotdl(
     spec: &JobSpec,
     tools: &Tools,
@@ -221,7 +221,7 @@ async fn run_spotdl(
 ) -> io::Result<()> {
     let mut cmd = base_command(&tools.spotdl);
     cmd.args(spotdl_args(spec, tools));
-    emit(JobUpdate::running(0, "Lettura metadati da Spotify, audio da YouTube…", None));
+    emit(JobUpdate::running(0, "Reading metadata from Spotify, audio from YouTube…", None));
 
     let mut total: u32 = 1;
     let mut done: u32 = 0;
@@ -235,12 +235,12 @@ async fn run_spotdl(
         match parse_spotdl_line(line) {
             SpotLine::Found(n) => {
                 total = n.max(1);
-                emit(JobUpdate::running(0, format!("Trovati {total} brani, download da YouTube…"), None));
+                emit(JobUpdate::running(0, format!("Found {total} tracks, downloading from YouTube…"), None));
             }
             SpotLine::Downloaded(name) => {
                 done += 1;
                 let p = ((done as f32 / total as f32) * 100.0) as u8;
-                emit(JobUpdate::running(p.min(99), format!("Scaricato {done}/{total}: {name}"), Some(name.clone())));
+                emit(JobUpdate::running(p.min(99), format!("Downloaded {done}/{total}: {name}"), Some(name.clone())));
                 title = Some(name);
             }
             SpotLine::Other => {}
@@ -253,8 +253,8 @@ async fn run_spotdl(
         Outcome::Exit(code) => {
             if code != Some(0) && done == 0 {
                 emit(JobUpdate::failed(format!(
-                    "spotDL è uscito con codice {}: {}",
-                    code.map_or("sconosciuto".to_string(), |c| c.to_string()),
+                    "spotDL exited with code {}: {}",
+                    code.map_or("unknown".to_string(), |c| c.to_string()),
                     truncate(&last_line, 200)
                 )));
                 return Ok(());
@@ -262,13 +262,13 @@ async fn run_spotdl(
             let file = newest_audio_file(&spec.out_dir, spec.format.ext(), started)
                 .map(|p| p.to_string_lossy().into_owned());
             if done == 0 && file.is_none() {
-                emit(JobUpdate::failed("Nessun file audio prodotto."));
+                emit(JobUpdate::failed("No audio file was produced."));
                 return Ok(());
             }
             emit(JobUpdate {
                 status: Status::Done,
                 progress: 100,
-                message: "Completato.".into(),
+                message: "Done.".into(),
                 title,
                 file,
                 files: done.max(1),
@@ -282,7 +282,7 @@ fn cancelled_update() -> JobUpdate {
     JobUpdate {
         status: Status::Cancelled,
         progress: 0,
-        message: "Annullato.".into(),
+        message: "Cancelled.".into(),
         title: None,
         file: None,
         files: 0,
@@ -293,7 +293,7 @@ fn truncate(s: &str, max: usize) -> String {
     s.chars().take(max).collect()
 }
 
-/// File audio con l'estensione data, modificato dopo `since`, il più recente.
+/// Newest audio file with the given extension, modified after `since`.
 fn newest_audio_file(dir: &Path, ext: &str, since: SystemTime) -> Option<PathBuf> {
     let mut best: Option<(SystemTime, PathBuf)> = None;
     for entry in std::fs::read_dir(dir).ok()?.flatten() {
@@ -306,7 +306,7 @@ fn newest_audio_file(dir: &Path, ext: &str, since: SystemTime) -> Option<PathBuf
             continue;
         }
         let Ok(modified) = entry.metadata().and_then(|m| m.modified()) else { continue };
-        // piccola tolleranza: alcuni file system arrotondano i timestamp
+        // small tolerance: some file systems round timestamps
         if modified + std::time::Duration::from_secs(2) < since {
             continue;
         }
@@ -328,19 +328,19 @@ fn base_command(program: &Path) -> Command {
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .kill_on_drop(true)
-        // yt-dlp e spotDL sono programmi Python: forziamo UTF-8 sulle pipe
+        // yt-dlp and spotDL are Python programs: force UTF-8 on the pipes
         .env("PYTHONUTF8", "1")
         .env("PYTHONIOENCODING", "utf-8");
     #[cfg(windows)]
     {
-        // niente finestra nera di console per ogni processo figlio
+        // no black console window for each child process
         const CREATE_NO_WINDOW: u32 = 0x0800_0000;
         cmd.creation_flags(CREATE_NO_WINDOW);
     }
     cmd
 }
 
-/// Avvia il processo e passa ogni riga (stdout e stderr insieme) a `on_line`.
+/// Starts the process and passes every line (stdout and stderr together) to `on_line`.
 async fn run_process(
     mut cmd: Command,
     cancel: &Notify,
@@ -391,7 +391,7 @@ async fn pump(stream: impl AsyncRead + Unpin, tx: mpsc::UnboundedSender<String>)
     }
 }
 
-/// Termina il processo e i suoi discendenti (ffmpeg lanciato da yt-dlp, ecc.).
+/// Terminates the process and its descendants (ffmpeg launched by yt-dlp, etc.).
 async fn kill_tree(child: &mut Child) {
     #[cfg(windows)]
     if let Some(pid) = child.id() {

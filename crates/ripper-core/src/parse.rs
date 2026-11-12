@@ -1,18 +1,18 @@
-//! Parsing riga per riga dell'output di yt-dlp e spotDL.
+//! Line-by-line parsing of yt-dlp and spotDL output.
 
 use std::path::Path;
 
 #[derive(Debug, PartialEq)]
 pub enum YtLine {
-    /// Percentuale di download (0-100).
+    /// Download percentage (0-100).
     Progress(u8),
-    /// File temporaneo in scrittura.
+    /// Temporary file being written.
     Destination(String),
-    /// Inizio della conversione audio.
+    /// Start of the audio conversion.
     Converting,
-    /// File audio finale.
+    /// Final audio file.
     Finished(String),
-    /// Messaggio di errore di yt-dlp.
+    /// yt-dlp error message.
     Error(String),
     Other,
 }
@@ -54,7 +54,7 @@ pub fn parse_ytdlp_line(line: &str) -> YtLine {
 pub enum SpotLine {
     /// "Found 12 songs in ..."
     Found(u32),
-    /// `Downloaded "Artista - Titolo": https://...`
+    /// `Downloaded "Artist - Title": https://...`
     Downloaded(String),
     Other,
 }
@@ -78,7 +78,7 @@ pub fn parse_spotdl_line(line: &str) -> SpotLine {
     SpotLine::Other
 }
 
-/// Nome del file senza cartella né estensione, da usare come titolo.
+/// File name without folder or extension, used as the title.
 pub fn title_from_path(path: &str) -> String {
     let normalized = path.replace('\\', "/");
     Path::new(&normalized)
@@ -101,16 +101,16 @@ mod tests {
     #[test]
     fn ytdlp_destination_and_finish() {
         assert_eq!(
-            parse_ytdlp_line(r"[download] Destination: C:\Music\Brano.webm"),
-            YtLine::Destination(r"C:\Music\Brano.webm".into())
+            parse_ytdlp_line(r"[download] Destination: C:\Music\Track.webm"),
+            YtLine::Destination(r"C:\Music\Track.webm".into())
         );
         assert_eq!(
-            parse_ytdlp_line(r"[ExtractAudio] Destination: C:\Music\Brano.mp3"),
-            YtLine::Finished(r"C:\Music\Brano.mp3".into())
+            parse_ytdlp_line(r"[ExtractAudio] Destination: C:\Music\Track.mp3"),
+            YtLine::Finished(r"C:\Music\Track.mp3".into())
         );
         assert_eq!(
-            parse_ytdlp_line("[ExtractAudio] Not converting audio /m/Brano.mp3; file is already in target format mp3"),
-            YtLine::Finished("/m/Brano.mp3".into())
+            parse_ytdlp_line("[ExtractAudio] Not converting audio /m/Track.mp3; file is already in target format mp3"),
+            YtLine::Finished("/m/Track.mp3".into())
         );
         assert_eq!(parse_ytdlp_line("[ExtractAudio] something else"), YtLine::Converting);
     }
@@ -127,7 +127,7 @@ mod tests {
 
     #[test]
     fn spotdl_lines() {
-        assert_eq!(parse_spotdl_line("Found 12 songs in Mia Playlist (Playlist)"), SpotLine::Found(12));
+        assert_eq!(parse_spotdl_line("Found 12 songs in My Playlist (Playlist)"), SpotLine::Found(12));
         assert_eq!(parse_spotdl_line("Found 1 song in X (Song)"), SpotLine::Found(1));
         assert_eq!(
             parse_spotdl_line("Downloaded \"Daft Punk - Around the World\": https://youtu.be/x"),
@@ -138,7 +138,7 @@ mod tests {
 
     #[test]
     fn title_extraction() {
-        assert_eq!(title_from_path(r"C:\Music\Mio Brano.mp3"), "Mio Brano");
+        assert_eq!(title_from_path(r"C:\Music\My Track.mp3"), "My Track");
         assert_eq!(title_from_path("/tmp/a.b.mp3"), "a.b");
     }
 }

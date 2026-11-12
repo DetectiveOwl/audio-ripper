@@ -1,4 +1,4 @@
-// Su Windows, in release, niente finestra di console.
+// On Windows, in release builds, no console window.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use std::path::{Path, PathBuf};
@@ -11,7 +11,7 @@ use tauri::{AppHandle, Emitter, Manager, State};
 use tauri_plugin_dialog::DialogExt;
 use tokio::sync::Notify;
 
-/// Stato condiviso: al massimo un job alla volta.
+/// Shared state: at most one job at a time.
 #[derive(Default)]
 struct AppState {
     active: Mutex<Option<Arc<Notify>>>,
@@ -41,7 +41,7 @@ fn save_settings(app: &AppHandle, settings: &Settings) -> Result<(), String> {
     std::fs::write(dir.join("settings.json"), json).map_err(|e| e.to_string())
 }
 
-/// Cartella scelta dall'utente, altrimenti Musica, altrimenti Download.
+/// Folder chosen by the user, otherwise Music, otherwise Downloads.
 fn resolve_out_dir(app: &AppHandle) -> PathBuf {
     if let Some(dir) = load_settings(app).out_dir {
         return PathBuf::from(dir);
@@ -52,10 +52,10 @@ fn resolve_out_dir(app: &AppHandle) -> PathBuf {
         .unwrap_or_else(|_| PathBuf::from("."))
 }
 
-/// Gli strumenti esterni stanno accanto all'eseguibile (sidecar di Tauri).
+/// The external tools sit next to the executable (Tauri sidecars).
 fn resolve_tools(app: &AppHandle) -> Result<Tools, String> {
     let exe = std::env::current_exe().map_err(|e| e.to_string())?;
-    let dir = exe.parent().ok_or("Cartella dell'app non trovata.")?;
+    let dir = exe.parent().ok_or("App folder not found.")?;
     let name = |n: &str| dir.join(if cfg!(windows) { format!("{n}.exe") } else { n.to_string() });
     let deno = name("deno");
     let cookies = config_dir(app).ok().map(|d| d.join("cookies.txt")).filter(|p| p.exists());
@@ -95,18 +95,18 @@ async fn start_download(
     url: String,
     fmt: String,
 ) -> Result<(), String> {
-    let format = Format::parse(&fmt).ok_or("Formato non valido: usa MP3 o WAV.")?;
+    let format = Format::parse(&fmt).ok_or("Invalid format: use MP3 or WAV.")?;
     let (url, source) = validate_url(&url)?;
     let out_dir = resolve_out_dir(&app);
     std::fs::create_dir_all(&out_dir)
-        .map_err(|e| format!("Cartella di destinazione non utilizzabile: {e}"))?;
+        .map_err(|e| format!("Destination folder not usable: {e}"))?;
     let tools = resolve_tools(&app)?;
 
     let cancel = Arc::new(Notify::new());
     {
         let mut active = state.active.lock().unwrap();
         if active.is_some() {
-            return Err("Un'estrazione è già in corso.".into());
+            return Err("An extraction is already in progress.".into());
         }
         *active = Some(cancel.clone());
     }
@@ -130,7 +130,7 @@ fn cancel_download(state: State<'_, AppState>) {
     }
 }
 
-/// Mostra il file in Esplora risorse (o apre la cartella se il percorso è una cartella).
+/// Shows the file in File Explorer (or opens the folder if the path is a folder).
 #[tauri::command]
 fn reveal(path: String) -> Result<(), String> {
     let p = Path::new(&path);
@@ -153,22 +153,22 @@ fn reveal(path: String) -> Result<(), String> {
     }
 }
 
-/// Riduci a icona (la finestra non ha la barra del titolo di Windows).
+/// Minimize (the window has no Windows title bar).
 #[tauri::command]
 fn minimize(window: tauri::WebviewWindow) {
     let _ = window.minimize();
 }
 
-/// Chiude l'app. All'uscita il Job Object termina anche tutti i processi figli.
+/// Closes the app. On exit the Job Object also terminates all child processes.
 #[tauri::command]
 fn quit(app: AppHandle) {
     app.exit(0);
 }
 
 fn main() {
-    // Alla chiusura dell'app Windows termina tutti i processi figli.
+    // When the app exits, Windows terminates all child processes.
     if let Err(e) = ripper_core::jobobject::kill_children_on_exit() {
-        eprintln!("Job Object non attivo: {e}");
+        eprintln!("Job Object not active: {e}");
     }
 
     tauri::Builder::default()
@@ -184,5 +184,5 @@ fn main() {
             quit
         ])
         .run(tauri::generate_context!())
-        .expect("errore durante l'avvio di Audio Ripper");
+        .expect("error while starting Audio Ripper");
 }

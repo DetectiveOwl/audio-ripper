@@ -1,8 +1,8 @@
-//! Logica di Audio Ripper, indipendente dall'interfaccia grafica.
+//! Audio Ripper logic, independent of the graphical interface.
 //!
-//! Il crate non conosce Tauri: riceve un URL, un formato e una cartella di
-//! destinazione, lancia yt-dlp o spotDL come processi figli e comunica lo
-//! stato tramite una callback. Così si può testare anche senza finestra.
+//! The crate knows nothing about Tauri: it takes a URL, a format and a
+//! destination folder, runs yt-dlp or spotDL as child processes and reports
+//! progress through a callback. This makes it testable without a window.
 
 pub mod jobobject;
 pub mod parse;
@@ -10,7 +10,7 @@ pub mod runner;
 
 use url::Url;
 
-/// Formato di uscita.
+/// Output format.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Format {
     Mp3,
@@ -34,12 +34,12 @@ impl Format {
     }
 }
 
-/// Da che programma passa il download.
+/// Which program performs the download.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Source {
-    /// YouTube e SoundCloud: yt-dlp.
+    /// YouTube and SoundCloud: yt-dlp.
     Direct,
-    /// Link Spotify: spotDL (metadati da Spotify, audio da YouTube).
+    /// Spotify links: spotDL (metadata from Spotify, audio from YouTube).
     Spotify,
 }
 
@@ -52,11 +52,11 @@ const ALLOWED_HOSTS: [&str; 6] = [
     "open.spotify.com",
 ];
 
-/// Controlla che l'URL sia http(s) e che l'host sia tra quelli ammessi.
-/// Restituisce l'URL normalizzato e la sorgente da usare.
+/// Checks that the URL is http(s) and that the host is on the allowlist.
+/// Returns the normalized URL and the source to use.
 pub fn validate_url(raw: &str) -> Result<(String, Source), String> {
     const ERR: &str =
-        "URL non consentito. Sorgenti ammesse: YouTube, SoundCloud, Spotify.";
+        "URL not allowed. Supported sources: YouTube, SoundCloud, Spotify.";
     let parsed = Url::parse(raw.trim()).map_err(|_| ERR.to_string())?;
     if parsed.scheme() != "http" && parsed.scheme() != "https" {
         return Err(ERR.to_string());
@@ -98,7 +98,7 @@ mod tests {
             "--exec=calc",
             "https://example.org",
         ] {
-            assert!(validate_url(bad).is_err(), "{bad} doveva essere rifiutato");
+            assert!(validate_url(bad).is_err(), "{bad} should have been rejected");
         }
     }
 
