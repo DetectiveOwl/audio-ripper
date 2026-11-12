@@ -31,23 +31,37 @@ Cmd+Q). The **Cancel** button stops the running download and its descendants on 
 Files go to the destination folder (**Music** by default, changeable in the app and
 remembered). There are no temporary copies and no timed cleanup.
 
-## Getting the app on Windows
+## Download
 
-On GitHub, open the **Actions** tab, pick the **Build Windows** workflow and press
-**Run workflow**. When the build finishes you get two artifacts: the **installer**
-(`.exe`, per-user install without admin rights) and the **portable version** (`.zip`,
-unzip it and run `audio-ripper.exe`). Both already include yt-dlp, ffmpeg, spotDL and deno.
+Get the latest version from the [**Releases** page](../../releases/latest) and pick the
+file for your computer:
 
-**Windows SmartScreen warning.** The app is not signed with a paid certificate, so on
-first launch Windows may show "Windows protected your PC". Click **More info** and then
-**Run anyway**. For the portable version you can avoid it by right-clicking the zip,
-choosing **Properties**, ticking **Unblock**, and only then extracting it.
+| Your computer | File |
+|---|---|
+| **Windows** (installer) | `AudioRipper-Windows-setup.exe` |
+| **Windows** (no install, unzip and run) | `AudioRipper-Windows-portable.zip` |
+| **Mac with an Apple chip** (M1 or newer) | `AudioRipper-macOS-apple-silicon.zip` |
+| **Mac with an Intel processor** | `AudioRipper-macOS-intel.zip` |
 
-## Getting the app on macOS
+Not sure which Mac you have? Open the Apple menu, then **About This Mac**: it says
+"Chip Apple M1/M2/M3..." for Apple silicon, or "Processor Intel..." for Intel.
 
-On GitHub, open the **Actions** tab, pick the **Build macOS** workflow and press
-**Run workflow**. You get two zips: `AudioRipper-macOS-apple-silicon` (M1 and newer) and
-`AudioRipper-macOS-intel`. Unzip, move **Audio Ripper.app** to Applications and open it.
+All versions already include yt-dlp, ffmpeg, spotDL and deno. The apps are not signed with
+a paid certificate, so the first launch shows a security warning, explained below.
+
+### Windows
+
+Run the installer (per-user, no admin rights needed) or unzip the portable version and run
+`audio-ripper.exe`.
+
+**Windows SmartScreen warning.** On first launch Windows may show "Windows protected your
+PC". Click **More info** and then **Run anyway**. For the portable version you can avoid it
+by right-clicking the zip, choosing **Properties**, ticking **Unblock**, and only then
+extracting it.
+
+### macOS
+
+Unzip, move **Audio Ripper.app** to Applications and open it.
 
 **macOS Gatekeeper warning.** The app is not signed or notarized (that needs a paid Apple
 Developer account), so macOS refuses to open it the first time. Either right-click the app,
@@ -60,6 +74,17 @@ xattr -cr "/Applications/Audio Ripper.app"
 
 The macOS version is built by CI and has not been tested on a real Mac by the author yet:
 issues are welcome.
+
+### Publishing a release (maintainers)
+
+Push a version tag and the **Release** workflow builds everything and publishes it:
+
+```bash
+git tag v0.1.0 && git push origin v0.1.0
+```
+
+The **Build Windows** and **Build macOS** workflows can also be run by hand from the
+**Actions** tab; they produce the same files as downloadable artifacts (GitHub login required).
 
 ## Building locally (Windows)
 

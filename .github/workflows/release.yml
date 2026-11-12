@@ -1,0 +1,57 @@
+name: Release
+
+# Builds Windows and macOS and publishes them as a GitHub Release with
+# clearly named files. Run it by pushing a tag such as "v0.1.0":
+#   git tag v0.1.0 && git push origin v0.1.0
+on:
+  push:
+    tags: ["v*"]
+
+jobs:
+  windows:
+    uses: ./.github/workflows/build-windows.yml
+  macos:
+    uses: ./.github/workflows/build-macos.yml
+
+  publish:
+    name: Publish the release
+    needs: [windows, macos]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Create the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+          REPO: ${{ github.repository }}
+        run: |
+          ls -la dist
+          cat > notes.md <<'NOTES'
+          Pick the file for your computer:
+
+          | Your computer | File |
+          |---|---|
+          | **Windows** (installer) | `AudioRipper-Windows-setup.exe` |
+          | **Windows** (no install, unzip and run) | `AudioRipper-Windows-portable.zip` |
+          | **Mac with an Apple chip** (M1 or newer) | `AudioRipper-macOS-apple-silicon.zip` |
+          | **Mac with an Intel processor** | `AudioRipper-macOS-intel.zip` |
+
+          Not sure which Mac you have? Open the Apple menu, then **About This Mac**: it says
+          "Chip Apple M1/M2/M3..." for Apple silicon, or "Processor Intel..." for Intel.
+
+          The apps are not signed with a paid certificate, so the first launch shows a
+          warning (Windows SmartScreen or macOS Gatekeeper). See the
+          [README](https://github.com/@REPO@#readme) for how to open them.
+          NOTES
+          sed -i "s#@REPO@#$REPO#" notes.md
+          gh release create "$TAG" dist/* \
+            --repo "$REPO" \
+            --title "Audio Ripper $TAG" \
+            --notes-file notes.md \
+            --generate-notes
