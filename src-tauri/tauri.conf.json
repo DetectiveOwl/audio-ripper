@@ -12,11 +12,14 @@
       {
         "label": "main",
         "title": "Audio Ripper",
-        "width": 760,
-        "height": 780,
-        "minWidth": 560,
-        "minHeight": 700,
-        "backgroundColor": "#15130f"
+        "width": 720,
+        "height": 610,
+        "backgroundColor": "#1f1c17",
+        "resizable": false,
+        "maximizable": false,
+        "decorations": false,
+        "shadow": true,
+        "center": true
       }
     ],
     "security": {
@@ -25,7 +28,9 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["nsis"],
+    "targets": [
+      "nsis"
+    ],
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",

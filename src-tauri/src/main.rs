@@ -153,6 +153,18 @@ fn reveal(path: String) -> Result<(), String> {
     }
 }
 
+/// Riduci a icona (la finestra non ha la barra del titolo di Windows).
+#[tauri::command]
+fn minimize(window: tauri::WebviewWindow) {
+    let _ = window.minimize();
+}
+
+/// Chiude l'app. All'uscita il Job Object termina anche tutti i processi figli.
+#[tauri::command]
+fn quit(app: AppHandle) {
+    app.exit(0);
+}
+
 fn main() {
     // Alla chiusura dell'app Windows termina tutti i processi figli.
     if let Err(e) = ripper_core::jobobject::kill_children_on_exit() {
@@ -167,7 +179,9 @@ fn main() {
             pick_out_dir,
             start_download,
             cancel_download,
-            reveal
+            reveal,
+            minimize,
+            quit
         ])
         .run(tauri::generate_context!())
         .expect("errore durante l'avvio di Audio Ripper");

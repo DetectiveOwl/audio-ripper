@@ -17,13 +17,9 @@
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%}
 body{
-  background:
-    radial-gradient(1200px 600px at 50% -10%, #221e16 0%, var(--bg) 60%),
-    var(--bg);
+  background:var(--rack);
   color:var(--text);
   font-family:var(--mono);
-  display:flex;align-items:center;justify-content:center;
-  padding:24px 16px;
   position:relative;
   user-select:none;
   overflow:hidden;
@@ -33,13 +29,12 @@ body::after{
   content:"";position:fixed;inset:0;pointer-events:none;opacity:.5;
   background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3CfeColorMatrix type='matrix' values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.05 0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
 }
-/* Larghezza fissa: la finestra la scala per intero con transform (vedi app.js) */
+/* Il pannello riempie tutta la finestra (che è a dimensione fissa e senza barra del titolo) */
 .rack{
-  width:680px;flex:none;transform-origin:center center;
+  width:100%;height:100%;
+  display:flex;flex-direction:column;
   background:linear-gradient(180deg,#2b2720 0%,var(--rack) 12%,var(--rack) 88%,#17140f 100%);
-  border:1px solid var(--line);
-  border-radius:10px;
-  box-shadow:0 30px 60px rgba(0,0,0,.6), inset 0 1px 0 rgba(255,255,255,.06);
+  box-shadow:inset 0 0 0 1px var(--line), inset 0 1px 0 rgba(255,255,255,.06);
   padding:34px 38px 26px;
   position:relative;
 }
@@ -59,12 +54,23 @@ body::after{
 .screw.bl{bottom:10px;left:10px;--rot:75deg}
 .screw.br{bottom:10px;right:10px;--rot:-12deg}
 
-header{display:flex;align-items:baseline;justify-content:space-between;gap:12px;
+header{display:flex;align-items:center;justify-content:space-between;gap:12px;
   border-bottom:1px solid var(--line);padding-bottom:14px;margin-bottom:20px}
 h1{font-family:var(--disp);font-weight:800;font-size:clamp(22px,4vw,30px);
   letter-spacing:.04em;text-transform:uppercase}
 h1 .amp{color:var(--amber)}
 .model{font-size:11px;color:var(--muted);letter-spacing:.18em;text-transform:uppercase}
+.head-right{display:flex;align-items:center;gap:14px}
+.winctl{display:flex;gap:6px}
+.winctl button{
+  width:30px;height:26px;display:flex;align-items:center;justify-content:center;
+  background:linear-gradient(180deg,#2e2a22,#211d16);
+  border:1px solid var(--line);border-radius:4px;color:var(--muted);
+  cursor:pointer;padding:0;
+}
+.winctl button:hover{color:var(--text);border-color:var(--amber-dim)}
+.winctl button.close:hover{color:#fff;background:linear-gradient(180deg,#ff8a78,var(--red) 60%,#c4402e);border-color:#6b2118}
+.winctl svg{width:12px;height:12px;stroke:currentColor;stroke-width:1.6;fill:none;stroke-linecap:round}
 
 .display{
   background:linear-gradient(180deg,#0b0a07,#12100a);
@@ -170,6 +176,7 @@ button{font-family:var(--mono)}
 .dl.show{display:block}
 
 footer{
+  margin-top:auto;
   border-top:1px solid var(--line);padding-top:12px;
   font-size:10.5px;line-height:1.65;color:var(--muted);
 }
