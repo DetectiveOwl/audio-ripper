@@ -10,6 +10,12 @@ pub enum YtLine {
     Destination(String),
     /// Start of the audio conversion.
     Converting,
+    /// Adding tags or the cover picture.
+    Tagging,
+    /// `[download] Downloading item 3 of 12` (playlists only).
+    Item(u32, u32),
+    /// The audio file was already in the folder, yt-dlp skips the download.
+    Existing(String),
     /// Final audio file.
     Finished(String),
     /// yt-dlp error message.
@@ -23,6 +29,17 @@ pub fn parse_ytdlp_line(line: &str) -> YtLine {
         let rest = rest.trim_start();
         if let Some(dest) = rest.strip_prefix("Destination:") {
             return YtLine::Destination(dest.trim().to_string());
+        }
+        if let Some(item) = rest.strip_prefix("Downloading item ") {
+            let mut parts = item.split(" of ");
+            let n = parts.next().and_then(|v| v.trim().parse().ok());
+            let total = parts.next().and_then(|v| v.trim().parse().ok());
+            if let (Some(n), Some(total)) = (n, total) {
+                return YtLine::Item(n, total);
+            }
+        }
+        if let Some(path) = rest.strip_suffix(" has already been downloaded") {
+            return YtLine::Existing(path.trim().to_string());
         }
         if let Some(idx) = rest.find('%') {
             if let Ok(p) = rest[..idx].trim().parse::<f32>() {
@@ -43,6 +60,12 @@ pub fn parse_ytdlp_line(line: &str) -> YtLine {
             }
         }
         return YtLine::Converting;
+    }
+    if line.starts_with("[Metadata]")
+        || line.starts_with("[EmbedThumbnail]")
+        || line.starts_with("[ThumbnailsConvertor]")
+    {
+        return YtLine::Tagging;
     }
     if let Some(err) = line.strip_prefix("ERROR:") {
         return YtLine::Error(err.trim().to_string());
@@ -123,6 +146,19 @@ mod tests {
         );
         assert_eq!(parse_ytdlp_line("[youtube] Extracting URL: https://youtu.be/abc"), YtLine::Other);
         assert_eq!(parse_ytdlp_line(""), YtLine::Other);
+    }
+
+    #[test]
+    fn ytdlp_playlist_item_existing_and_tagging() {
+        assert_eq!(parse_ytdlp_line("[download] Downloading item 3 of 12"), YtLine::Item(3, 12));
+        assert_eq!(parse_ytdlp_line("[download] Downloading item x of 12"), YtLine::Other);
+        assert_eq!(
+            parse_ytdlp_line("[download] /m/Track.mp3 has already been downloaded"),
+            YtLine::Existing("/m/Track.mp3".into())
+        );
+        assert_eq!(parse_ytdlp_line("[Metadata] Adding metadata to \"/m/Track.mp3\""), YtLine::Tagging);
+        assert_eq!(parse_ytdlp_line("[EmbedThumbnail] ffmpeg: Adding thumbnail to \"/m/Track.mp3\""), YtLine::Tagging);
+        assert_eq!(parse_ytdlp_line("[ThumbnailsConvertor] Converting thumbnail"), YtLine::Tagging);
     }
 
     #[test]

@@ -5,9 +5,11 @@
 //! progress through a callback. This makes it testable without a window.
 
 pub mod children;
+pub mod errors;
 pub mod jobobject;
 pub mod parse;
 pub mod runner;
+pub mod update;
 
 use url::Url;
 
@@ -34,6 +36,30 @@ impl Format {
         }
     }
 }
+
+/// How downloaded files are named.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum NameStyle {
+    /// `Title.mp3`
+    #[default]
+    Title,
+    /// `Artist - Title.mp3` when the artist is known, otherwise just the title.
+    ArtistTitle,
+}
+
+impl NameStyle {
+    pub fn parse(s: &str) -> Option<Self> {
+        match s.trim() {
+            "title" => Some(NameStyle::Title),
+            "artist_title" => Some(NameStyle::ArtistTitle),
+            _ => None,
+        }
+    }
+}
+
+/// Browsers yt-dlp can read login cookies from (`--cookies-from-browser`).
+pub const COOKIE_BROWSERS: [&str; 7] =
+    ["firefox", "chrome", "edge", "brave", "chromium", "opera", "safari"];
 
 /// Which program performs the download.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -75,9 +101,43 @@ pub fn validate_url(raw: &str) -> Result<(String, Source), String> {
     Ok((parsed.to_string(), source))
 }
 
+/// True for links that point at a whole playlist: they get their own subfolder
+/// and the progress is counted per item.
+pub fn is_playlist_url(raw: &str) -> bool {
+    let Ok(parsed) = Url::parse(raw.trim()) else { return false };
+    let host = parsed.host_str().unwrap_or("").to_ascii_lowercase();
+    let host = host.trim_start_matches("www.").trim_start_matches("m.");
+    match host {
+        "youtube.com" | "music.youtube.com" => {
+            parsed.path() == "/playlist" && parsed.query_pairs().any(|(k, _)| k == "list")
+        }
+        "soundcloud.com" => parsed.path_segments().is_some_and(|mut s| s.any(|seg| seg == "sets")),
+        _ => false,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn playlist_detection() {
+        assert!(is_playlist_url("https://www.youtube.com/playlist?list=PL123"));
+        assert!(is_playlist_url("https://music.youtube.com/playlist?list=PL123"));
+        assert!(is_playlist_url("https://soundcloud.com/artist/sets/my-set"));
+        // a video that happens to be inside a playlist is just one video
+        assert!(!is_playlist_url("https://www.youtube.com/watch?v=abc&list=PL123"));
+        assert!(!is_playlist_url("https://youtu.be/abc?list=PL123"));
+        assert!(!is_playlist_url("https://soundcloud.com/artist/track"));
+        assert!(!is_playlist_url("not a url"));
+    }
+
+    #[test]
+    fn name_style_parse() {
+        assert_eq!(NameStyle::parse("title"), Some(NameStyle::Title));
+        assert_eq!(NameStyle::parse("artist_title"), Some(NameStyle::ArtistTitle));
+        assert_eq!(NameStyle::parse("x"), None);
+    }
 
     #[test]
     fn accepts_known_hosts() {

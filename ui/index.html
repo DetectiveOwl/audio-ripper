@@ -33,13 +33,13 @@
       <span></span><span></span><span></span><span></span><span></span><span></span>
       <span></span><span></span><span></span><span></span><span></span><span></span>
     </div>
-    <div class="readout" id="readout">READY. ENTER A URL.</div>
+    <div class="readout" id="readout" aria-live="polite">READY. ENTER A URL.</div>
   </div>
 
   <div class="row">
     <label class="field">
-      <small>Source: YouTube / SoundCloud / Spotify</small>
-      <input type="url" id="url" placeholder="https://…" autocomplete="off" spellcheck="false">
+      <small>Source: YouTube / SoundCloud / Spotify (one or more links)</small>
+      <input type="text" id="url" placeholder="https://…" autocomplete="off" spellcheck="false">
     </label>
   </div>
 
@@ -53,10 +53,32 @@
     </div>
   </div>
 
+  <div class="row opts">
+    <label class="field half">
+      <small>File names</small>
+      <select id="name-style">
+        <option value="title">Title</option>
+        <option value="artist_title">Artist - Title</option>
+      </select>
+    </label>
+    <label class="field half" title="Needed for age-restricted or members-only videos. Firefox works best; Chrome and Edge can be blocked while they are open.">
+      <small>Login cookies</small>
+      <select id="cookies">
+        <option value="none">None</option>
+        <option value="firefox">From Firefox</option>
+        <option value="chrome">From Chrome</option>
+        <option value="edge">From Edge</option>
+        <option value="brave">From Brave</option>
+        <option value="safari" id="opt-safari">From Safari</option>
+        <option value="file">cookies.txt file…</option>
+      </select>
+    </label>
+  </div>
+
   <div class="row">
     <div class="fmt" role="radiogroup" aria-label="Format">
-      <button type="button" id="fmt-mp3" class="on" data-fmt="mp3"><span class="led"></span>MP3 320</button>
-      <button type="button" id="fmt-wav" data-fmt="wav"><span class="led"></span>WAV</button>
+      <button type="button" id="fmt-mp3" class="on" role="radio" aria-checked="true" data-fmt="mp3"><span class="led"></span>MP3 320</button>
+      <button type="button" id="fmt-wav" role="radio" aria-checked="false" data-fmt="wav"><span class="led"></span>WAV</button>
     </div>
     <button class="go" id="go">Extract audio</button>
   </div>
@@ -66,11 +88,18 @@
     <div class="pct"><span id="msg">Waiting.</span><b id="pct">0%</b></div>
   </div>
 
-  <button class="dl" id="dl" type="button">Show in folder</button>
+  <section class="queue" id="queue" aria-label="Queue">
+    <div class="qhead">
+      <small id="qcount">Queue</small>
+      <button type="button" id="qclear" class="link">Clear finished</button>
+    </div>
+    <ul id="qlist"></ul>
+  </section>
 
   <footer>
-    <b>WAV</b> does not improve an already compressed source: it is only a
-    lossless container.
+    <div class="tools"><span id="tools" aria-live="polite">Components: bundled versions.</span>
+      <button type="button" id="check" class="link">Check for updates</button></div>
+    <div><b>WAV</b> does not improve an already compressed source: it is only a lossless container.</div>
   </footer>
 </main>
 <script src="app.js"></script>

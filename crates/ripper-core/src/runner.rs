@@ -2,19 +2,22 @@
 //! progress. One job at a time, no global state, no delayed cleanup: files go
 //! straight into the folder chosen by the user.
 
+use std::collections::HashSet;
 use std::io;
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
 use std::sync::Arc;
-use std::time::SystemTime;
+use std::time::{Duration, SystemTime};
 
 use serde::Serialize;
-use tokio::io::{AsyncBufReadExt, AsyncRead, BufReader};
+use tokio::io::{AsyncRead, AsyncReadExt};
 use tokio::process::{Child, Command};
 use tokio::sync::{mpsc, Notify};
+use tokio::time::Instant;
 
+use crate::errors::explain;
 use crate::parse::{parse_spotdl_line, parse_ytdlp_line, title_from_path, SpotLine, YtLine};
-use crate::{Format, Source};
+use crate::{is_playlist_url, Format, NameStyle, Source};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "lowercase")]
@@ -34,16 +37,54 @@ pub struct JobUpdate {
     pub title: Option<String>,
     /// Path of the last file produced, if known.
     pub file: Option<String>,
-    /// How many tracks were written (more than one for Spotify playlists).
+    /// How many tracks were written (more than one for playlists).
     pub files: u32,
+    /// The original error text, when `message` is a friendlier version of it.
+    pub detail: Option<String>,
 }
 
 impl JobUpdate {
     fn running(progress: u8, message: impl Into<String>, title: Option<String>) -> Self {
-        Self { status: Status::Running, progress, message: message.into(), title, file: None, files: 0 }
+        Self {
+            status: Status::Running,
+            progress,
+            message: message.into(),
+            title,
+            file: None,
+            files: 0,
+            detail: None,
+        }
     }
     fn failed(message: impl Into<String>) -> Self {
-        Self { status: Status::Error, progress: 0, message: message.into(), title: None, file: None, files: 0 }
+        Self {
+            status: Status::Error,
+            progress: 0,
+            message: message.into(),
+            title: None,
+            file: None,
+            files: 0,
+            detail: None,
+        }
+    }
+    /// Error from a program's output: friendly text if we know the case, the raw
+    /// text (with the program's name) otherwise. The raw text always goes in `detail`.
+    fn failed_from(program: &str, code: Option<i32>, raw: &str) -> Self {
+        let raw = raw.trim();
+        let message = explain(raw).unwrap_or_else(|| {
+            format!(
+                "{program} exited with code {}: {}",
+                code.map_or("unknown".to_string(), |c| c.to_string()),
+                truncate(raw, 200)
+            )
+        });
+        let mut u = Self::failed(message);
+        if !raw.is_empty() {
+            u.detail = Some(truncate(raw, 600));
+        }
+        u
+    }
+    fn done(message: impl Into<String>, title: Option<String>, file: Option<String>, files: u32) -> Self {
+        Self { status: Status::Done, progress: 100, message: message.into(), title, file, files, detail: None }
     }
 }
 
@@ -57,6 +98,14 @@ pub struct Tools {
     pub deno: Option<PathBuf>,
     /// cookies.txt in Netscape format (optional).
     pub cookies: Option<PathBuf>,
+    /// Browser to read login cookies from, yt-dlp only (optional, see `COOKIE_BROWSERS`).
+    pub cookies_browser: Option<String>,
+    /// A job that prints nothing for this long is considered stuck and stopped.
+    pub stall_timeout: Duration,
+}
+
+impl Tools {
+    pub const DEFAULT_STALL_TIMEOUT: Duration = Duration::from_secs(300);
 }
 
 #[derive(Debug, Clone)]
@@ -65,6 +114,7 @@ pub struct JobSpec {
     pub source: Source,
     pub format: Format,
     pub out_dir: PathBuf,
+    pub name_style: NameStyle,
 }
 
 /// Runs the job to completion, emitting updates.
@@ -91,6 +141,20 @@ pub async fn run_job(
     }
 }
 
+/// yt-dlp output template: a subfolder per playlist, numbered files inside it.
+fn out_template(spec: &JobSpec) -> String {
+    let name = match spec.name_style {
+        NameStyle::Title => "%(title)s",
+        NameStyle::ArtistTitle => "%(artist&{} - |)s%(title)s",
+    };
+    let rel = if is_playlist_url(&spec.url) {
+        format!("%(playlist_title)s/%(playlist_index)02d - {name}.%(ext)s")
+    } else {
+        format!("{name}.%(ext)s")
+    };
+    spec.out_dir.join(rel).to_string_lossy().into_owned()
+}
+
 fn ytdlp_args(spec: &JobSpec, tools: &Tools) -> Vec<String> {
     let mut a: Vec<String> = vec![
         "-x".into(),
@@ -102,16 +166,27 @@ fn ytdlp_args(spec: &JobSpec, tools: &Tools) -> Vec<String> {
         "--ffmpeg-location".into(),
         tools.ffmpeg.to_string_lossy().into_owned(),
         "-o".into(),
-        spec.out_dir.join("%(title)s.%(ext)s").to_string_lossy().into_owned(),
+        out_template(spec),
     ];
     if spec.format == Format::Mp3 {
-        a.extend(["--audio-quality".into(), "320K".into()]);
+        // tags and cover art: only MP3 (ID3) supports them reliably
+        a.extend([
+            "--audio-quality".into(),
+            "320K".into(),
+            "--embed-metadata".into(),
+            "--embed-thumbnail".into(),
+            "--convert-thumbnails".into(),
+            "jpg".into(),
+        ]);
     }
     if let Some(deno) = &tools.deno {
         a.push("--js-runtimes".into());
         a.push(format!("deno:{}", deno.to_string_lossy()));
     }
-    if let Some(c) = &tools.cookies {
+    if let Some(browser) = &tools.cookies_browser {
+        a.push("--cookies-from-browser".into());
+        a.push(browser.clone());
+    } else if let Some(c) = &tools.cookies {
         a.push("--cookies".into());
         a.push(c.to_string_lossy().into_owned());
     }
@@ -120,13 +195,18 @@ fn ytdlp_args(spec: &JobSpec, tools: &Tools) -> Vec<String> {
 }
 
 fn spotdl_args(spec: &JobSpec, tools: &Tools) -> Vec<String> {
+    let template = match spec.name_style {
+        // spotDL always knows the artists
+        NameStyle::ArtistTitle => "{artists} - {title}.{output-ext}",
+        NameStyle::Title => "{title}.{output-ext}",
+    };
     let mut a: Vec<String> = vec![
         "download".into(),
         spec.url.clone(),
         "--format".into(),
         spec.format.ext().into(),
         "--output".into(),
-        spec.out_dir.join("{artists} - {title}.{output-ext}").to_string_lossy().into_owned(),
+        spec.out_dir.join(template).to_string_lossy().into_owned(),
         "--ffmpeg".into(),
         tools.ffmpeg.to_string_lossy().into_owned(),
     ];
@@ -138,6 +218,20 @@ fn spotdl_args(spec: &JobSpec, tools: &Tools) -> Vec<String> {
         a.push(c.to_string_lossy().into_owned());
     }
     a
+}
+
+/// Overall percentage when the job is item `n` of `total` and the item is at `p`%.
+fn overall(item: (u32, u32), p: u8) -> u8 {
+    let (n, total) = item;
+    if total <= 1 {
+        return p.min(99);
+    }
+    let done_before = n.saturating_sub(1).min(total) as f32;
+    (((done_before * 100.0 + p as f32) / total as f32) as u8).min(99)
+}
+
+fn item_prefix(item: (u32, u32)) -> String {
+    if item.1 > 1 { format!("Item {}/{}: ", item.0, item.1) } else { String::new() }
 }
 
 async fn run_ytdlp(
@@ -152,28 +246,48 @@ async fn run_ytdlp(
 
     let mut title: Option<String> = None;
     let mut file: Option<String> = None;
+    let mut finished: HashSet<String> = HashSet::new();
+    let mut item: (u32, u32) = (1, 1);
+    let mut errors: u32 = 0;
     let mut last_error = String::new();
     let mut last_line = String::new();
 
-    let outcome = run_process(cmd, cancel, |line| {
+    let outcome = run_process(cmd, cancel, tools.stall_timeout, |line| {
         if !line.trim().is_empty() {
             last_line = line.trim().to_string();
         }
         match parse_ytdlp_line(line) {
             YtLine::Progress(p) => {
-                emit(JobUpdate::running(p.min(99), "Downloading…", title.clone()));
+                let msg = format!("{}Downloading…", item_prefix(item));
+                emit(JobUpdate::running(overall(item, p), msg, title.clone()));
+            }
+            YtLine::Item(n, total) => {
+                item = (n, total);
+                file = None;
+                emit(JobUpdate::running(overall(item, 0), item_prefix(item) + "Starting…", title.clone()));
             }
             YtLine::Destination(d) => {
                 if file.is_none() {
                     title = Some(title_from_path(&d));
                 }
             }
-            YtLine::Converting => emit(JobUpdate::running(99, "Converting…", title.clone())),
-            YtLine::Finished(f) => {
+            YtLine::Converting => {
+                let msg = format!("{}Converting…", item_prefix(item));
+                emit(JobUpdate::running(overall(item, 99), msg, title.clone()));
+            }
+            YtLine::Tagging => {
+                let msg = format!("{}Adding tags and cover…", item_prefix(item));
+                emit(JobUpdate::running(overall(item, 99), msg, title.clone()));
+            }
+            YtLine::Existing(f) | YtLine::Finished(f) => {
                 title = Some(title_from_path(&f));
+                finished.insert(f.clone());
                 file = Some(f);
             }
-            YtLine::Error(e) => last_error = e,
+            YtLine::Error(e) => {
+                errors += 1;
+                last_error = e;
+            }
             YtLine::Other => {}
         }
     })
@@ -181,30 +295,45 @@ async fn run_ytdlp(
 
     match outcome {
         Outcome::Cancelled => emit(cancelled_update()),
-        Outcome::Exit(Some(0)) => {
-            let file = file.or_else(|| {
+        Outcome::Stalled => emit(stalled_update(tools.stall_timeout)),
+        Outcome::Exit(code) => {
+            let playlist = item.1 > 1;
+            // a single link that finished but left no "Finished" line: look in the folder
+            let fallback = if finished.is_empty() && !playlist && code == Some(0) {
                 newest_audio_file(&spec.out_dir, spec.format.ext(), started)
                     .map(|p| p.to_string_lossy().into_owned())
-            });
-            match file {
-                Some(f) => emit(JobUpdate {
-                    status: Status::Done,
-                    progress: 100,
-                    message: "Done.".into(),
-                    title: title.or_else(|| Some(title_from_path(&f))),
-                    file: Some(f),
-                    files: 1,
-                }),
-                None => emit(JobUpdate::failed("No audio file was produced.")),
+            } else {
+                None
+            };
+            let files = finished.len() as u32 + fallback.is_some() as u32;
+            let file = file.or(fallback);
+            match (code, file) {
+                (Some(0), Some(f)) => {
+                    let msg = if files > 1 { format!("Done: {files} tracks.") } else { "Done.".into() };
+                    let t = title.or_else(|| Some(title_from_path(&f)));
+                    emit(JobUpdate::done(msg, t, Some(f), files.max(1)));
+                }
+                // some tracks failed (private or removed videos) or a tag step failed:
+                // the audio is there, so it is a success with a note
+                (_, Some(f)) if files > 0 => {
+                    let msg = if playlist {
+                        format!(
+                            "Done: {files} {}, {} skipped (errors).",
+                            if files == 1 { "track" } else { "tracks" },
+                            errors.max(1)
+                        )
+                    } else {
+                        "Done (the audio is saved, but tags or cover could not be added).".into()
+                    };
+                    let t = title.or_else(|| Some(title_from_path(&f)));
+                    emit(JobUpdate::done(msg, t, Some(f), files));
+                }
+                (Some(0), None) => emit(JobUpdate::failed("No audio file was produced.")),
+                (code, _) => {
+                    let detail = if last_error.is_empty() { last_line } else { last_error };
+                    emit(JobUpdate::failed_from("yt-dlp", code, &detail));
+                }
             }
-        }
-        Outcome::Exit(code) => {
-            let detail = if last_error.is_empty() { last_line } else { last_error };
-            emit(JobUpdate::failed(format!(
-                "yt-dlp exited with code {}: {}",
-                code.map_or("unknown".to_string(), |c| c.to_string()),
-                truncate(&detail, 200)
-            )));
         }
     }
     Ok(())
@@ -228,7 +357,7 @@ async fn run_spotdl(
     let mut title: Option<String> = None;
     let mut last_line = String::new();
 
-    let outcome = run_process(cmd, cancel, |line| {
+    let outcome = run_process(cmd, cancel, tools.stall_timeout, |line| {
         if !line.trim().is_empty() {
             last_line = line.trim().to_string();
         }
@@ -250,13 +379,10 @@ async fn run_spotdl(
 
     match outcome {
         Outcome::Cancelled => emit(cancelled_update()),
+        Outcome::Stalled => emit(stalled_update(tools.stall_timeout)),
         Outcome::Exit(code) => {
             if code != Some(0) && done == 0 {
-                emit(JobUpdate::failed(format!(
-                    "spotDL exited with code {}: {}",
-                    code.map_or("unknown".to_string(), |c| c.to_string()),
-                    truncate(&last_line, 200)
-                )));
+                emit(JobUpdate::failed_from("spotDL", code, &last_line));
                 return Ok(());
             }
             let file = newest_audio_file(&spec.out_dir, spec.format.ext(), started)
@@ -265,14 +391,9 @@ async fn run_spotdl(
                 emit(JobUpdate::failed("No audio file was produced."));
                 return Ok(());
             }
-            emit(JobUpdate {
-                status: Status::Done,
-                progress: 100,
-                message: "Done.".into(),
-                title,
-                file,
-                files: done.max(1),
-            });
+            let n = done.max(1);
+            let msg = if n > 1 { format!("Done: {n} tracks.") } else { "Done.".into() };
+            emit(JobUpdate::done(msg, title, file, n));
         }
     }
     Ok(())
@@ -286,7 +407,14 @@ fn cancelled_update() -> JobUpdate {
         title: None,
         file: None,
         files: 0,
+        detail: None,
     }
+}
+
+fn stalled_update(after: Duration) -> JobUpdate {
+    let mins = after.as_secs() / 60;
+    let when = if mins >= 1 { format!("{mins} min") } else { format!("{} s", after.as_secs().max(1)) };
+    JobUpdate::failed(format!("The download seems stuck (no activity for {when}) and was stopped."))
 }
 
 fn truncate(s: &str, max: usize) -> String {
@@ -307,7 +435,7 @@ fn newest_audio_file(dir: &Path, ext: &str, since: SystemTime) -> Option<PathBuf
         }
         let Ok(modified) = entry.metadata().and_then(|m| m.modified()) else { continue };
         // small tolerance: some file systems round timestamps
-        if modified + std::time::Duration::from_secs(2) < since {
+        if modified + Duration::from_secs(2) < since {
             continue;
         }
         if best.as_ref().is_none_or(|(t, _)| modified > *t) {
@@ -317,12 +445,13 @@ fn newest_audio_file(dir: &Path, ext: &str, since: SystemTime) -> Option<PathBuf
     best.map(|(_, p)| p)
 }
 
-enum Outcome {
+pub(crate) enum Outcome {
     Exit(Option<i32>),
     Cancelled,
+    Stalled,
 }
 
-fn base_command(program: &Path) -> Command {
+pub(crate) fn base_command(program: &Path) -> Command {
     let mut cmd = Command::new(program);
     cmd.stdin(Stdio::null())
         .stdout(Stdio::piped())
@@ -344,15 +473,24 @@ fn base_command(program: &Path) -> Command {
     cmd
 }
 
+enum Chunk {
+    Line(String),
+    /// Bytes arrived, even if no line is complete yet (progress bars that
+    /// redraw with `\r`): proves the program is alive.
+    Activity,
+}
+
 /// Starts the process and passes every line (stdout and stderr together) to `on_line`.
-async fn run_process(
+/// Stops it if it stays silent for `stall` (`Outcome::Stalled`).
+pub(crate) async fn run_process(
     mut cmd: Command,
     cancel: &Notify,
+    stall: Duration,
     mut on_line: impl FnMut(&str),
 ) -> io::Result<Outcome> {
     let mut child = cmd.spawn()?;
     let _registered = child.id().map(crate::children::Registered::new);
-    let (tx, mut rx) = mpsc::unbounded_channel::<String>();
+    let (tx, mut rx) = mpsc::unbounded_channel::<Chunk>();
     if let Some(out) = child.stdout.take() {
         tokio::spawn(pump(out, tx.clone()));
     }
@@ -363,15 +501,21 @@ async fn run_process(
 
     let cancelled = cancel.notified();
     tokio::pin!(cancelled);
+    let mut deadline = Instant::now() + stall;
     loop {
         tokio::select! {
-            line = rx.recv() => match line {
-                Some(l) => on_line(&l),
+            chunk = rx.recv() => match chunk {
+                Some(Chunk::Line(l)) => { deadline = Instant::now() + stall; on_line(&l) }
+                Some(Chunk::Activity) => deadline = Instant::now() + stall,
                 None => break,
             },
             _ = &mut cancelled => {
                 kill_tree(&mut child).await;
                 return Ok(Outcome::Cancelled);
+            }
+            _ = tokio::time::sleep_until(deadline) => {
+                kill_tree(&mut child).await;
+                return Ok(Outcome::Stalled);
             }
         }
     }
@@ -379,25 +523,40 @@ async fn run_process(
     Ok(Outcome::Exit(status.code()))
 }
 
-async fn pump(stream: impl AsyncRead + Unpin, tx: mpsc::UnboundedSender<String>) {
-    let mut reader = BufReader::new(stream);
-    let mut buf = Vec::new();
+/// Reads a pipe and sends complete lines. `\n` and `\r` both end a line.
+async fn pump(mut stream: impl AsyncRead + Unpin, tx: mpsc::UnboundedSender<Chunk>) {
+    let mut buf = [0u8; 4096];
+    let mut pending: Vec<u8> = Vec::new();
     loop {
-        buf.clear();
-        match reader.read_until(b'\n', &mut buf).await {
+        match stream.read(&mut buf).await {
             Ok(0) | Err(_) => break,
-            Ok(_) => {
-                let line = String::from_utf8_lossy(&buf).trim_end().to_string();
-                if tx.send(line).is_err() {
-                    break;
+            Ok(n) => {
+                if tx.send(Chunk::Activity).is_err() {
+                    return;
+                }
+                for &b in &buf[..n] {
+                    if b == b'\n' || b == b'\r' {
+                        if !pending.is_empty() {
+                            let line = String::from_utf8_lossy(&pending).trim_end().to_string();
+                            pending.clear();
+                            if tx.send(Chunk::Line(line)).is_err() {
+                                return;
+                            }
+                        }
+                    } else {
+                        pending.push(b);
+                    }
                 }
             }
         }
     }
+    if !pending.is_empty() {
+        let _ = tx.send(Chunk::Line(String::from_utf8_lossy(&pending).trim_end().to_string()));
+    }
 }
 
 /// Terminates the process and its descendants (ffmpeg launched by yt-dlp, etc.).
-async fn kill_tree(child: &mut Child) {
+pub(crate) async fn kill_tree(child: &mut Child) {
     #[cfg(windows)]
     if let Some(pid) = child.id() {
         const CREATE_NO_WINDOW: u32 = 0x0800_0000;

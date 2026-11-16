@@ -1,7 +1,8 @@
 # Audio Ripper
 
 A **Windows** and **macOS** app that extracts audio from **YouTube**, **SoundCloud** and **Spotify**
-links as **MP3 320 kbps** or **WAV**, with an analog studio-rack interface.
+links (single tracks or whole playlists) as **MP3 320 kbps** or **WAV**, with an analog
+studio-rack interface.
 
 Written in **Rust** with **Tauri 2**. There is no server: the app opens a single
 fixed-size window (WebView2 on Windows, already included in Windows 11; the system
@@ -30,6 +31,47 @@ Cmd+Q). The **Cancel** button stops the running download and its descendants on 
 
 Files go to the destination folder (**Music** by default, changeable in the app and
 remembered). There are no temporary copies and no timed cleanup.
+
+## Using it
+
+Paste one or more links (separated by spaces) and press **Extract audio**: they go into a
+**queue** and are extracted one at a time. Links can be added while a download is running.
+**Cancel** stops the current download and pauses the queue; **Extract audio** resumes it.
+
+A YouTube playlist link (`youtube.com/playlist?list=...`) or a SoundCloud set goes into its
+own subfolder named after the playlist, with numbered files. A video link that also carries
+a `list=` parameter downloads only that video. Unavailable items in a playlist are skipped
+and counted at the end.
+
+MP3 files get **tags and the cover picture**. Under **File names** you can choose `Title`
+or `Artist - Title` (the artist is added only when the site knows it). A file that is
+already in the folder is not downloaded again. A download that shows no activity for
+5 minutes is considered stuck and stopped.
+
+Common errors (private, age-restricted, region-blocked or removed videos, network problems,
+an outdated yt-dlp) are shown as a short explanation; hover the message for the original
+text.
+
+### Login cookies
+
+Some videos need a logged-in account (age-restricted, members-only, or when YouTube asks
+to "confirm you're not a bot"). Under **Login cookies** pick the browser you are logged in
+with and yt-dlp reads its cookies; **Firefox** works best, Chrome and Edge can refuse while
+they are open. You can also choose a `cookies.txt` file (Netscape format), which is copied
+into the app's settings folder and is also used for Spotify links.
+
+### Updates of yt-dlp and spotDL
+
+YouTube changes often and an old yt-dlp stops working. Once a day (a few seconds after
+launch, and after each new version of the app) Audio Ripper checks for new versions of
+yt-dlp and spotDL and installs them in its data folder
+(`%LOCALAPPDATA%\dev.audioripper.app\bin` on Windows,
+`~/Library/Application Support/dev.audioripper.app/bin` on macOS), so no new release of
+the app is needed. yt-dlp updates itself and verifies its own checksum; spotDL is downloaded
+from its GitHub release, checked against the SHA-256 GitHub publishes (when there is one)
+and tried before replacing the old copy. The footer shows the versions in use and has a
+**Check for updates** button. Downloads wait while an update is running. The check uses
+the system `curl`, which Windows 10/11 and macOS already include.
 
 ## Download
 
@@ -72,8 +114,7 @@ choose **Open** and confirm, or go to **System Settings > Privacy & Security** a
 xattr -cr "/Applications/Audio Ripper.app"
 ```
 
-The macOS version is built by CI and has not been tested on a real Mac by the author yet:
-issues are welcome.
+The macOS version has been tested on a real Mac.
 
 ### Publishing a release (maintainers)
 
@@ -110,11 +151,13 @@ The core logic tests run on any system: `cargo test -p ripper-core`.
 
 ## Notes
 
-- Some YouTube content needs a `cookies.txt` in Netscape format. Put it in
+- A `cookies.txt` chosen in the app is stored as
   `%APPDATA%\dev.audioripper.app\cookies.txt` (Windows) or
-  `~/Library/Application Support/dev.audioripper.app/cookies.txt` (macOS) and it will be
-  used by yt-dlp and spotDL.
-- yt-dlp and spotDL chase moving targets: to update them, just run the build again, which
-  always downloads the latest versions.
+  `~/Library/Application Support/dev.audioripper.app/cookies.txt` (macOS). One put there by
+  hand is still picked up as long as no other choice was made under Login cookies.
+- The build scripts always download the latest yt-dlp, ffmpeg, spotDL and deno and check
+  each against the SHA-256 its publisher provides (yt-dlp, deno and the Windows ffmpeg
+  always; spotDL and the macOS ffmpeg when GitHub has a digest for them). The build stops
+  on a mismatch.
 - WAV output does not improve an already compressed source: it is only a lossless
   container from that point on.
