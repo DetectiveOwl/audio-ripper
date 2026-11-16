@@ -21,10 +21,12 @@ function Get-File($url, $out) {
     Invoke-WebRequest -Uri $url -OutFile $out -Headers @{ 'User-Agent' = 'audio-ripper-build' }
 }
 
-# Downloads a checksum file and returns its text.
+# Downloads a checksum file and returns its text (servers often send it as
+# binary, which PowerShell hands back as a byte array).
 function Get-Text($url) {
-    (Invoke-WebRequest -Uri $url -Headers @{ 'User-Agent' = 'audio-ripper-build' } -UseBasicParsing).Content |
-        ForEach-Object { if ($_ -is [byte[]]) { [System.Text.Encoding]::UTF8.GetString($_) } else { $_ } }
+    $content = (Invoke-WebRequest -Uri $url -Headers @{ 'User-Agent' = 'audio-ripper-build' } -UseBasicParsing).Content
+    if ($content -is [byte[]]) { return [System.Text.Encoding]::UTF8.GetString($content) }
+    return [string]$content
 }
 
 # Stops the build if the file's SHA-256 is not the expected one.
