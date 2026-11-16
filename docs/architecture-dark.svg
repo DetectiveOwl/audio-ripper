@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1240" height="300" viewBox="0 0 1240 300" role="img" aria-label="Architecture: the UI calls the Tauri shell, which uses ripper-core, which runs yt-dlp, spotDL, ffmpeg and deno and downloads tool updates from GitHub Releases">
+<defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#656c76"/></marker></defs>
+<rect x="20" y="95" width="170" height="110" rx="10" fill="#161b22" stroke="#3d444d" stroke-width="1.5"/>
+<text x="105.0" y="134.0" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" font-size="16" font-weight="600" fill="#f0f6fc">ui/</text>
+<text x="105.0" y="158.0" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="14" fill="#9198a1">HTML · CSS · JS</text>
+<text x="105.0" y="180.0" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="14" fill="#9198a1">queue, controls</text>
+<rect x="400" y="95" width="190" height="110" rx="10" fill="#161b22" stroke="#3d444d" stroke-width="1.5"/>
+<text x="495.0" y="134.0" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" font-size="16" font-weight="600" fill="#f0f6fc">src-tauri</text>
+<text x="495.0" y="158.0" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="14" fill="#9198a1">window, commands,</text>
+<text x="495.0" y="180.0" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="14" fill="#9198a1">settings, app state</text>
+<rect x="650" y="70" width="270" height="160" rx="10" fill="#0d2a4a" stroke="#4493f8" stroke-width="1.5"/>
+<text x="785.0" y="123.0" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" font-size="16" font-weight="600" fill="#f0f6fc">crates/ripper-core</text>
+<text x="785.0" y="147.0" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="14" fill="#9198a1">URL validation · job runner</text>
+<text x="785.0" y="169.0" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="14" fill="#9198a1">output parsing · error mapping</text>
+<text x="785.0" y="191.0" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="14" fill="#9198a1">tool updater</text>
+<rect x="1060" y="30" width="160" height="80" rx="10" fill="#161b22" stroke="#3d444d" stroke-width="1.5" stroke-dasharray="6 5"/>
+<text x="1140.0" y="65.0" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="14" fill="#f0f6fc">yt-dlp · spotDL</text>
+<text x="1140.0" y="87.0" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="14" fill="#f0f6fc">ffmpeg · deno</text>
+<rect x="1060" y="190" width="160" height="80" rx="10" fill="#161b22" stroke="#3d444d" stroke-width="1.5" stroke-dasharray="6 5"/>
+<text x="1140.0" y="236.0" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="14" fill="#f0f6fc">GitHub Releases</text>
+<line x1="192" y1="135" x2="396" y2="135" stroke="#656c76" stroke-width="1.6" marker-end="url(#a)"/>
+<text x="294" y="124" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" font-size="13" fill="#9198a1">invoke()</text>
+<line x1="398" y1="165" x2="194" y2="165" stroke="#656c76" stroke-width="1.6" marker-end="url(#a)"/>
+<text x="294" y="186" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="13" fill="#9198a1">events: job-update,</text>
+<text x="294" y="203" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="13" fill="#9198a1">tools-status</text>
+<line x1="592" y1="150" x2="646" y2="150" stroke="#656c76" stroke-width="1.6" marker-end="url(#a)"/>
+<line x1="922" y1="125" x2="1056" y2="74" stroke="#656c76" stroke-width="1.6" marker-end="url(#a)"/>
+<text x="962" y="62" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="13" fill="#9198a1">spawn, stream</text>
+<text x="962" y="79" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="13" fill="#9198a1">stdout/stderr</text>
+<line x1="922" y1="175" x2="1056" y2="226" stroke="#656c76" stroke-width="1.6" marker-end="url(#a)"/>
+<text x="962" y="232" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="13" fill="#9198a1">curl +</text>
+<text x="962" y="249" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="13" fill="#9198a1">SHA-256 check</text>
+</svg>

@@ -48,20 +48,12 @@ choose **Open** and confirm. If macOS says the app is damaged, run
 
 ## Architecture
 
-```mermaid
-flowchart LR
-    UI["<b>ui/</b><br/>HTML · CSS · JS<br/>queue, controls"]
-    Shell["<b>src-tauri</b><br/>window, commands,<br/>settings, app state"]
-    Core["<b>crates/ripper-core</b><br/>URL validation · job runner<br/>output parsing · error mapping<br/>tool updater"]
-    Tools["yt-dlp · spotDL<br/>ffmpeg · deno"]
-    GH["GitHub Releases"]
-
-    UI -- "invoke()" --> Shell
-    Shell -- "events: job-update, tools-status" --> UI
-    Shell --> Core
-    Core -- "spawn, stream stdout/stderr" --> Tools
-    Core -- "curl + SHA-256 check" --> GH
-```
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/architecture-dark.svg">
+    <img src="docs/architecture-light.svg" alt="Architecture: the ui/ calls the Tauri shell with invoke() and receives job-update and tools-status events; the shell uses crates/ripper-core, which spawns yt-dlp, spotDL, ffmpeg and deno and downloads tool updates from GitHub Releases with a SHA-256 check" width="100%">
+  </picture>
+</p>
 
 The code is split so that the interesting logic can be tested without a window:
 
