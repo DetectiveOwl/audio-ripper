@@ -7,7 +7,7 @@
         pct = $('pct'), msg = $('msg'), readout = $('readout'),
         outdirEl = $('outdir'), pick = $('pick'), fmtWrap = document.querySelector('.fmt'),
         nameEl = $('name-style'), cookiesEl = $('cookies'),
-        queueEl = $('queue'), qlist = $('qlist'), qcount = $('qcount'), qclear = $('qclear'),
+        qlist = $('qlist'), qcount = $('qcount'), qclear = $('qclear'),
         toolsEl = $('tools'), checkBtn = $('check');
   const fmtBtns = [...document.querySelectorAll('.fmt button')];
 
@@ -106,11 +106,16 @@
   }
 
   function renderQueue() {
-    queueEl.hidden = items.length === 0;
     const n = waiting().length;
     qcount.textContent = n ? 'Queue (' + n + ' waiting)' : 'Queue';
     qclear.hidden = !items.some((i) => i.state !== 'waiting' && i.state !== 'running');
     qlist.textContent = '';
+    if (!items.length) {
+      const li = document.createElement('li');
+      li.className = 'empty';
+      li.textContent = 'Paste one or more links above: they are extracted here one at a time.';
+      qlist.append(li);
+    }
     for (const i of items) {
       const li = document.createElement('li');
       li.className = i.state;
@@ -304,5 +309,6 @@
     lastCookies = cookiesEl.value;
   }).catch(() => {});
   invoke('get_tools_status').then(showTools).catch(() => {});
+  renderQueue();
   urlEl.focus();
 })();

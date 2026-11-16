@@ -186,17 +186,20 @@ button.link:hover{color:var(--amber)}
 button.link:disabled{opacity:.5;cursor:default;text-decoration:none}
 
 /* queue */
-.queue{margin-bottom:8px}
-.queue[hidden]{display:none}
+.queue{flex:1;min-height:0;display:flex;flex-direction:column;margin-bottom:10px}
 .qhead{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px}
 .qhead small{font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
 .qhead .link{font-size:10.5px}
-#qlist{list-style:none;max-height:84px;overflow-y:auto;border:1px solid var(--line);border-radius:4px;background:var(--groove)}
+#qlist{list-style:none;flex:1;min-height:0;overflow-y:auto;border:1px solid var(--line);border-radius:4px;background:var(--groove)}
 #qlist li{
   display:flex;align-items:center;gap:9px;padding:0 10px;height:28px;font-size:11.5px;
   border-bottom:1px solid #1d1a14;
 }
 #qlist li:last-child{border-bottom:0}
+#qlist li.empty{
+  height:100%;justify-content:center;text-align:center;border:0;
+  color:var(--muted);font-size:11px;letter-spacing:.04em;padding:0 24px;
+}
 #qlist .dot{flex:none;width:8px;height:8px;border-radius:50%;background:#3c3526}
 #qlist .running .dot{background:var(--amber);box-shadow:0 0 8px var(--amber)}
 #qlist .done .dot{background:var(--green)}
