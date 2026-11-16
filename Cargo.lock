@@ -2606,6 +2606,8 @@ version = "0.1.0"
 dependencies = [
  "libc",
  "serde",
+ "serde_json",
+ "sha2",
  "tokio",
  "url",
  "windows-sys 0.59.0",
