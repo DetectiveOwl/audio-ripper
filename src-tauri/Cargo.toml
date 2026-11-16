@@ -1,6 +1,6 @@
 [package]
 name = "audio-ripper"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 description = "Audio Ripper: estrattore audio per Windows (YouTube, SoundCloud, Spotify) in MP3 320k o WAV."
 
